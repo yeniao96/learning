@@ -1,0 +1,212 @@
+<html lang="en">
+	<head>
+		<title>three.js webgl - particles - waves</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				background-color: #000;
+				margin: 0px;
+				overflow: hidden;
+				font-family:Monospace;
+				font-size:13px;
+				text-align:center;
+				font-weight: bold;
+				text-align:center;
+			}
+
+			a {
+				color:#0078ff;
+			}
+
+			#info {
+				color:#fff;
+				position: absolute;
+				top: 0px;
+				width: 100%;
+				padding: 5px;
+			}
+		</style>
+	</head>
+	<body>
+
+		<div id="info">
+			<a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> - webgl particles waves example
+		</div>
+
+		<script src="js/three-r56.js"></script>
+
+		<script src="js/WebGL.js"></script>
+		<script src="js/stats.min.js"></script>
+
+
+		<script>
+
+			if ( WEBGL.isWebGLAvailable() === false ) {
+
+				document.body.appendChild( WEBGL.getWebGLErrorMessage() );
+
+			}
+
+			var SEPARATION = 100, AMOUNTX = 50, AMOUNTY = 50;
+
+			var container, stats;
+			var camera, scene, renderer;
+
+			var particlesA, particlesB, particlesC, count = 0;
+
+			var colors = [], geometryA = new THREE.Geometry(), geometryB = new THREE.Geometry(), geometryC = new THREE.Geometry();
+
+			var mouseX = 0, mouseY = 0;
+
+			var material;
+			var windowHalfX = window.innerWidth / 2;
+			var windowHalfY = window.innerHeight / 2;
+			var group = new THREE.Object3D();
+
+			init();
+			animate();
+
+			function init() {
+
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+
+				camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.z = 1500;
+
+				scene = new THREE.Scene();
+
+
+        var PI2 = 2 * Math.PI;
+
+				
+
+        for ( var ix = 0; ix < 640; ix ++ ) {
+
+
+						var vertexA = new THREE.Vector3();
+						vertexA.x = 900 * Math.sin( PI2 * (ix / 640) );
+						vertexA.y = 100;
+						vertexA.z = 900 * Math.cos( PI2 * (ix / 640) );
+						geometryA.vertices.push( vertexA );
+
+						var vertexB = new THREE.Vector3();
+						vertexB.x = 1250 * Math.sin( PI2 * (ix / 640) );
+						vertexB.y = 100;
+						vertexB.z = 1250 * Math.cos( PI2 * (ix / 640) );
+						geometryB.vertices.push( vertexB );
+
+						var vertexC = new THREE.Vector3();
+						vertexC.x = 1500 * Math.sin( PI2 * (ix / 640) );
+						vertexC.y = 100;
+						vertexC.z = 1500 * Math.cos( PI2 * (ix / 640) );
+						geometryC.vertices.push( vertexC );
+
+
+            if(ix % 10 === 0) {
+							colors[ ix ] = new THREE.Color( 0xffffff );
+            }else{
+							colors[ ix ] = new THREE.Color( 0x000000 );
+            }
+
+      }
+
+				geometryA.colors = colors;
+				geometryB.colors = colors;
+				geometryC.colors = colors;
+
+				material = new THREE.ParticleBasicMaterial( { size: 20, map: (function(){
+
+					var canvas = document.createElement('canvas');
+					canvas.width = 4;
+					canvas.height = 4;
+
+					var ctx = canvas.getContext('2d');
+
+					ctx.beginPath();
+					ctx.arc( 2, 2, 1.5, 0, PI2, true );
+					ctx.fillStyle="white";
+					ctx.closePath();
+					ctx.fill();
+					var texture = new THREE.Texture(canvas);
+					texture.needsUpdate = true;
+
+					return texture;
+				})(), vertexColors: true, transparent: true } );
+
+				particlesA = new THREE.ParticleSystem( geometryA, material );
+				particlesB = new THREE.ParticleSystem( geometryB, material );
+				particlesC = new THREE.ParticleSystem( geometryC, material );
+				group.add(particlesA)
+				group.add(particlesB)
+				group.add(particlesC)
+
+
+				particlesA.sortParticles = true;
+				particlesB.sortParticles = true;
+				particlesC.sortParticles = true;
+
+				scene.add( particlesA );
+				scene.add( particlesB );
+				scene.add( particlesC );
+				scene.add(group);
+
+
+
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+				// stats = new Stats();
+				// container.appendChild( stats.dom );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function onWindowResize() {
+
+				windowHalfX = window.innerWidth / 2;
+				windowHalfY = window.innerHeight / 2;
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+		
+			function animate() {
+				requestAnimationFrame( animate );
+				render();
+				stats.update();
+
+			}
+
+			function render() {
+				particlesA.rotation.x = Math.PI / 2;
+				particlesB.rotation.x = Math.PI / 2;
+				particlesC.rotation.x = Math.PI / 2;
+				camera.position.x += ( mouseX - camera.position.x ) * .05;
+				camera.position.y += ( - mouseY - camera.position.y ) * .05;
+				camera.lookAt( scene.position );
+
+
+				for ( var ix = 0; ix < 640; ix ++ ) {
+					particlesA.geometry.vertices[ix].y = ( Math.sin( (ix + count) * Math.PI / 160 ) * 80 );
+					particlesB.geometry.vertices[ix].y = ( Math.sin( (ix + count - 50) * Math.PI / 160) * 80 );
+					particlesC.geometry.vertices[ix].y = ( Math.sin( (ix + count - 100) * Math.PI / 160 ) * 80 );  
+				}
+
+				renderer.render( scene, camera );
+
+				count += 1;
+
+			}
+
+		</script>
+	</body>
+</html>

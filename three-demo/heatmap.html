@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>heatmap</title>
+<style>
+	*{
+		margin: 0;
+		padding: 0;
+	}
+  html,body {
+    width: 100%;
+    height: 100%;
+    /* background: linear-gradient(to bottom, #00092b , #000000 , #000000 , #00092b ); */
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+</style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+	</body>
+	 <script>
+      var canvas = document.getElementById('canvas');
+      var ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      let radius = 5; 
+
+      function genData() {
+        let heatData = [];
+        
+        for(let i = 0;  i < 10000; i++) {
+          heatData.push([
+            Math.random() * canvas.width,
+            Math.random() * canvas.height,
+            Math.random()
+          ])
+        }
+        return heatData;
+      }
+
+      let data = genData();
+
+      let maxWeight = minWeight = 0;
+      for(let i = 0; i < data.length;i++) {
+        minWeight = Math.min(minWeight, data[i][2]);
+        maxWeight = Math.max(maxWeight, data[i][2]);
+      }
+
+      
+      function createSharder(){
+        let canvas = document.createElement('canvas');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        let ctx = canvas.getContext('2d');
+        let gradient = ctx.createLinearGradient(0,0,0,256);
+        let colors = {
+          0:'rgba(85,21,193,0)',
+          0.3:'rgba(25,148,203,0.7)',
+          0.5:'rgba(241,238,46,1)',
+          1:'rgba(255,9,1,1)'
+        }
+        for(const k in colors) {
+          gradient.addColorStop(k, colors[k]);
+        }
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0,0,10,256);
+        return ctx.getImageData(0,0,1,256).data;
+      }
+      let s = createSharder();
+      function getColor(position){
+        return s.slice(position*4, position*4+3);
+      }
+
+      function render(data, radius){
+        data.forEach((p) => {
+          let x = p[0];
+          let y = p[1];
+          let v = p[2];
+        
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, 2*Math.PI);
+          ctx.closePath();
+          let gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+          gradient.addColorStop(0,'rgba(0,0,0,1)');
+          gradient.addColorStop(1,'rgba(0,0,0,0)');
+          ctx.fillStyle = gradient;
+          let globalAlpha = (v - minWeight) / (maxWeight - minWeight);
+          ctx.globalAlpha = Math.max(Math.min(globalAlpha, 1), 0);
+          ctx.fill();
+        });
+        let imageData = ctx.getImageData(0,0,canvas.width,canvas.height);
+        arrData = imageData.data;
+        for(let i = 3; i < arrData.length; i += 4) {
+          let a = arrData[i];
+          let color = getColor(a);
+          arrData[i-3] = color[0]; 
+          arrData[i-2] = color[1]; 
+          arrData[i-1] = color[2]; 
+        }
+        ctx.putImageData(imageData, 0, 0);
+      }
+
+      render(data, radius)
+
+
+      window.onmousewheel = (e) => {
+        if(e.wheelDelta < 0) {
+          if(radius < 20) {
+            radius += 1;
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            render(data, radius);
+          }
+        }else{
+          if(radius > 5) {
+            radius -= 1;
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            render(data, radius);
+          }
+        }
+      }
+	</script>
+</html>
