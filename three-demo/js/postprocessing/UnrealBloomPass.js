@@ -189,7 +189,7 @@ THREE.UnrealBloomPass.prototype = Object.assign( Object.create( THREE.Pass.proto
 		var oldAutoClear = renderer.autoClear;
 		renderer.autoClear = false;
 
-		renderer.setClearColor( new THREE.Color( 0, 0, 0 ), 0 );
+		renderer.setClearColor( new THREE.Color( 1, 0, 0 ), 0 );
 
 		if ( maskActive ) renderer.context.disable( renderer.context.STENCIL_TEST );
 
@@ -200,7 +200,7 @@ THREE.UnrealBloomPass.prototype = Object.assign( Object.create( THREE.Pass.proto
 			this.quad.material = this.basic;
 			this.basic.map = readBuffer.texture;
 
-			renderer.render( this.scene, this.camera, undefined, true );
+			renderer.render( this.scene, this.camera, undefined );
 
 		}
 
@@ -210,7 +210,7 @@ THREE.UnrealBloomPass.prototype = Object.assign( Object.create( THREE.Pass.proto
 		this.highPassUniforms[ "luminosityThreshold" ].value = this.threshold;
 		this.quad.material = this.materialHighPassFilter;
 
-		renderer.render( this.scene, this.camera, this.renderTargetBright, true );
+		renderer.render( this.scene, this.camera, this.renderTargetBright );
 
 		// 2. Blur All the mips progressively
 
@@ -222,11 +222,11 @@ THREE.UnrealBloomPass.prototype = Object.assign( Object.create( THREE.Pass.proto
 
 			this.separableBlurMaterials[ i ].uniforms[ "colorTexture" ].value = inputRenderTarget.texture;
 			this.separableBlurMaterials[ i ].uniforms[ "direction" ].value = THREE.UnrealBloomPass.BlurDirectionX;
-			renderer.render( this.scene, this.camera, this.renderTargetsHorizontal[ i ], true );
+			renderer.render( this.scene, this.camera, this.renderTargetsHorizontal[ i ] );
 
 			this.separableBlurMaterials[ i ].uniforms[ "colorTexture" ].value = this.renderTargetsHorizontal[ i ].texture;
 			this.separableBlurMaterials[ i ].uniforms[ "direction" ].value = THREE.UnrealBloomPass.BlurDirectionY;
-			renderer.render( this.scene, this.camera, this.renderTargetsVertical[ i ], true );
+			renderer.render( this.scene, this.camera, this.renderTargetsVertical[ i ] );
 
 			inputRenderTarget = this.renderTargetsVertical[ i ];
 
@@ -239,7 +239,7 @@ THREE.UnrealBloomPass.prototype = Object.assign( Object.create( THREE.Pass.proto
 		this.compositeMaterial.uniforms[ "bloomRadius" ].value = this.radius;
 		this.compositeMaterial.uniforms[ "bloomTintColors" ].value = this.bloomTintColors;
 
-		renderer.render( this.scene, this.camera, this.renderTargetsHorizontal[ 0 ], true );
+		renderer.render( this.scene, this.camera, this.renderTargetsHorizontal[ 0 ] );
 
 		// Blend it additively over the input texture
 
@@ -251,11 +251,11 @@ THREE.UnrealBloomPass.prototype = Object.assign( Object.create( THREE.Pass.proto
 
 		if ( this.renderToScreen ) {
 
-			renderer.render( this.scene, this.camera, undefined, false );
+			renderer.render( this.scene, this.camera, undefined );
 
 		} else {
 
-			renderer.render( this.scene, this.camera, readBuffer, false );
+			renderer.render( this.scene, this.camera, readBuffer );
 
 		}
 

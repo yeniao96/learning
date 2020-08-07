@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>scene_switch</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<script src='./js/mapbox-gl.js'></script>
+
+		<link href='https://api.mapbox.com/mapbox-gl-js/v1.10.0/mapbox-gl.css' rel='stylesheet' />
+	</head>
+	<style>
+		body, html { 
+			width: 100%;
+			height: 100%;
+			margin: 0;
+		}
+		#map { 
+			width: 100%;
+			height: 100%;
+		}
+		#model{
+        position: absolute;
+        z-index: 10;
+        pointer-events: none;
+      }
+		#start{
+			position: absolute;
+			width: 40px;
+			height: 30px;
+			text-align: center;
+			line-height: 30px;
+			top: 10px;
+			left: 10px;
+			padding: 0;
+			display: block;
+			box-sizing: content-box;
+			cursor: pointer;
+			z-index: 11;
+		}
+		#back{
+			position: absolute;
+			width: 40px;
+			height: 40px;
+			border: none;
+			border-radius: 50%;
+			background-color: rgba(255, 255, 255, 0);
+			text-align: center;
+			line-height: 40px;
+			top: 20px;
+			left: 20px;
+			padding: 0;
+			display: block;
+			box-sizing: content-box;
+			cursor: pointer;
+			z-index: 11;
+			color:aliceblue;
+			font-size: 10px;
+			display: none;
+		}
+		#back:hover{
+			background-color: rgba(255, 255, 255, 0.2);
+		}
+		.model{
+			opacity: 0;
+			transition: all 2s linear;
+		}
+		.mapboxgl-canvas-container{
+			opacity: 1;
+			transition: all 2s linear;
+		}
+		.container-hide{
+			opacity: 0;
+
+		}
+		.container-show{
+			opacity: 1;
+
+		}
+		.mapboxgl-ctrl{
+			display: none !important;
+		}
+
+		.mapboxgl-canvas{
+			background: url('./img/pano.jpg');
+			background-repeat: no-repeat;
+			background-position: center;
+			background-size: 100% 100%;
+		}
+
+		#tip{
+			position: absolute;
+			width: 300px;
+			height: 40px;
+			line-height: 40px;
+			text-align: center;
+			letter-spacing: 2px;
+			top: 20px;
+			left: calc(50% - 150px);
+			font-size: 14px;
+			color: white;
+		}
+		
+	
+	</style>
+	<body>
+		<div id='map' class='map'>
+			<div id="model" class="model"></div>
+	
+		</div>
+		<div id='back' title='返回'>
+			<svg viewBox="0 0 24 24" preserveAspectRatio="xMidYMid meet" focusable="false" style="pointer-events: none; display: block; width: 70%; height: 70%;margin-top: 15%;margin-left: 15%"><g><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" fill='#FFFFFF'></path></g></svg>
+		</div>
+		<div id='tip'>
+			点击地铁站图标进入三维场景
+		</div>
+		<script type="module">
+
+			import * as THREE from './build/three.module.js';
+
+			import { DDSLoader } from './js/jsm/loaders/DDSLoader.js';
+			import { MTLLoader } from './js/jsm/loaders/MTLLoader.js';
+			import { OBJLoader } from './js/jsm/loaders/OBJLoader.js';
+			import { OrbitControls } from './js/jsm/controls/OrbitControls.js';
+			import { TrackballControls } from "./js/jsm/controls/TrackballControls.js";
+			import { FirstPersonControls } from "./js/jsm/controls/FirstPersonControls.js";
+
+
+
+
+			mapboxgl.accessToken = 'pk.eyJ1IjoiZWR5ZGF0YSIsImEiOiJjajZobmwzdzcwYjMxMzJteTd2Y3A0MGVyIn0.kw8CoNgHKeywtca6JlK2UA';
+
+			var origin = [120.597890997523,31.3189215840662];
+			var map = new mapboxgl.Map({
+				container: 'map',
+				style: './js/style.json',
+				center: origin,
+				zoom: 10,
+				heading: 41,
+				transformRequest: function(url, resourceType) {
+					console.log(resourceType)
+					if (resourceType === 'Tile' && url.indexOf('api.mapbox.com') > -1) {
+						return {
+							url: url,
+							// headers: { 'Cache-Control': 'max-age=43200'},
+						}
+					}
+				}
+			});
+
+
+			var container;
+
+			var camera, scene, renderer;
+
+			var mouseX = 0, mouseY = 0;
+
+			var windowHalfX = window.innerWidth / 2;
+			var windowHalfY = window.innerHeight / 2;
+
+
+			init();
+			animate();
+
+			
+
+			map.on('load', ()=>{
+				let div = document.createElement('div');
+				div.style.width = '80px';
+				div.style.height = '100px';
+				div.style.backgroundRepeat = 'no-repeat';
+				div.style.backgroundPosition = 'center';
+				div.style.backgroundSize = '100% 100%';
+				div.style.marginTop = '-33px';
+				div.style.backgroundImage = 'url(./img/dt.png)';
+				div.addEventListener('click', function() {
+					map.easeTo({
+							zoom: 20,
+							center: [120.61206123021302,31.328789989593844],
+							pitch: 85,
+							duration: 4000,
+							animate: true,
+							essential: true,
+							easing: t => {
+								if (t === 1) {
+									document.querySelector('.mapboxgl-canvas-container').classList.add('container-hide')
+									let container = document.getElementById('model');
+									container.classList.add('container-show');
+									container.style.pointerEvents = 'visible';
+									camera.position.set(30,0,0.4);
+									document.getElementById('back').style.display = 'block';
+									setTimeout(() => {
+										map.panTo([120.61206123021302,31.329789989593844], {
+											duration: 2000,
+											animate: true,
+											essential: true
+										})
+									},0)
+									
+								}
+								return t;
+							}
+						})
+				});
+				var marker = new mapboxgl.Marker({
+					element: div
+				}).setLngLat([120.61206123021302,31.328789989593844]).addTo(map);
+			})
+
+
+			var controls;
+
+			function init() {
+
+				container = document.getElementById('model');
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 20000 );
+
+				camera.position.z = 100;
+
+				var default_camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 20000 );
+				default_camera.position.z = 100;
+
+				// scene
+
+				scene = new THREE.Scene();
+
+				scene.add( new THREE.AmbientLight( 0xffffff ) );
+	
+				var pointLight = new THREE.PointLight( 0xffffff, 0.8 );
+				camera.add( pointLight );
+				scene.add( camera );
+
+				// model
+
+				var onProgress = function ( xhr ) {
+
+					if ( xhr.lengthComputable ) {
+
+						var percentComplete = xhr.loaded / xhr.total * 100;
+
+					}
+
+				};
+
+				var onError = function () { };
+				var manager = new THREE.LoadingManager();
+				manager.addHandler( /\.dds$/i, new DDSLoader() );
+
+				var loader = new THREE.TextureLoader();
+
+				loader.load(
+					// 资源URL
+					'./img/pano.jpg',
+
+					// onLoad回调
+					function ( texture ) {
+						// in this example we create the material when the texture is loaded
+						var material = new THREE.MeshBasicMaterial( {
+							map: texture
+						} );
+						scene.background = texture;
+					},
+
+					// 目前暂不支持onProgress的回调
+					undefined,
+
+					// onError回调
+					function ( err ) {
+						console.error( 'An error happened.' );
+					}
+				);
+
+				new MTLLoader( manager )
+					.setPath( 'js/huochezhan/' )
+					.load( '1.mtl', function ( materials ) {
+
+						materials.preload();
+
+						new OBJLoader( manager )
+							.setMaterials( materials )
+							.setPath( 'js/huochezhan/' )
+							.load( '1.obj', function ( object ) {
+
+								object.position.y = 10;
+								object.rotation.set( -Math.PI/2, 0,4*Math.PI/9)
+
+								scene.add( object );
+								// map.on('click', (e) => {
+									
+								// 	map.easeTo({
+								// 		zoom: 19,
+								// 		center: [e.lngLat.lng, e.lngLat.lat],
+								// 		pitch: 60,
+								// 		duration: 2500,
+								// 		animate: true,
+								// 		essential: true,
+								// 		easing: t => {
+								// 			if (t === 1) {
+								// 				document.querySelector('.mapboxgl-canvas-container').classList.add('container-hide')
+								// 				let container = document.getElementById('model');
+								// 				container.classList.add('container-show');
+								// 				container.style.pointerEvents = 'visible';
+								// 				camera.position.set(30,0,0.4);
+								// 			}
+								// 			return t;
+								// 		}
+								// 	})
+								// })
+
+								document.getElementById('back').addEventListener('click', () => {
+									map.setPitch(80);
+									document.querySelector('.mapboxgl-canvas-container').classList.remove('container-hide')
+									let container = document.getElementById('model');
+									container.classList.remove('container-show')
+									container.style.pointerEvents = 'none';
+									document.getElementById('back').style.display = 'none';
+									setTimeout(() => {
+										map.easeTo({
+											zoom: 17,
+											center: [120.61206123021302,31.328789989593844],
+											pitch: 0,
+											duration: 2500,
+											animate: true,
+											essential: true,
+											easing: t => {
+												if (t === 1) {
+													// camera.copy(default_camera);
+												}
+												return t;
+											}
+										})
+									},1900)
+								})
+
+
+							}, onProgress, onError );
+
+					} );
+
+				//
+
+				renderer = new THREE.WebGLRenderer({ 
+            alpha: true, 
+            antialias: true
+        } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+
+				window.addEventListener( 'resize', onWindowResize, false );
+				controls = new OrbitControls( camera, renderer.domElement );
+				// controls.movementSpeed = 70;
+				// controls.lookSpeed = 0.05;
+				// controls.noFly = true;
+				// controls.lookVertical = false;
+				console.log(camera)
+
+			}
+
+			function onWindowResize() {
+
+				windowHalfX = window.innerWidth / 2;
+				windowHalfY = window.innerHeight / 2;
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+			function animate() {
+			
+
+				requestAnimationFrame( animate );
+				render();
+
+			}
+
+			function render() {
+				let clock = new THREE.Clock();
+				controls.update(clock.getDelta());
+				renderer.render( scene, camera );
+			
+			}
+
+		</script>
+
+	</body>
+</html>

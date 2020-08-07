@@ -3,7 +3,6 @@
  */
 
 THREE.EffectComposer = function ( renderer, renderTarget ) {
-
 	this.renderer = renderer;
 
 	if ( renderTarget === undefined ) {
@@ -14,7 +13,6 @@ THREE.EffectComposer = function ( renderer, renderTarget ) {
 			format: THREE.RGBAFormat,
 			stencilBuffer: false
 		};
-
 		var size = renderer.getDrawingBufferSize();
 		renderTarget = new THREE.WebGLRenderTarget( size.width, size.height, parameters );
 		renderTarget.texture.name = 'EffectComposer.rt1';

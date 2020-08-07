@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>blink-point</title>
+<style>
+	*{
+		margin: 0;
+		padding: 0;
+	}
+  html,body {
+    width: 100%;
+    height: 100%;
+    /* background: linear-gradient(to bottom, #00092b , #000000 , #000000 , #00092b ); */
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+#canvas_animate{
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+</style>
+</head>
+<body>
+  <canvas id="canvas" style="background-color: black;"></canvas>
+  <canvas id="canvas_animate" width="600" height="600" ></canvas>
+
+	</body>
+	 <script>
+      var canvas = document.getElementById('canvas');
+      var ctx = canvas.getContext('2d');
+      canvas.width = 600;
+      canvas.height = 600;
+
+      var canvas_animate = document.getElementById('canvas_animate');
+      var ctx_animate = canvas_animate.getContext('2d');
+      ctx_animate.width = 600;
+      ctx_animate.height = 600;
+      
+      let lines = [
+        [
+          [100, 100, 'rgba(244, 0, 0, .8)'],
+          [300, 100, 'rgba(0, 0, 244, .8)'],
+          [300, 300, 'rgba(244, 0, 244, .8)'],
+          [400, 300, 'rgba(0, 200, 200, .8)'],
+          [400, 500, 'rgba(0, 200, 0, .8)']
+        ],
+        [
+          [200, 50, 'rgba(244, 0, 0, .8)'],
+          [200, 400, 'rgba(0, 0, 244, .8)'],
+          [300, 400, 'rgba(244, 0, 244, .8)'],
+          [300, 200, 'rgba(0, 200, 200, .8)'],
+          [500, 200, 'rgba(0, 200, 0, .8)']
+        ],
+        [
+          [500, 300, 'rgba(244, 0, 0, .8)'],
+          [400, 300, 'rgba(0, 0, 244, .8)'],
+          [400, 100, 'rgba(244, 0, 244, .8)'],
+          [100, 100, 'rgba(0, 200, 200, .8)'],
+          [100, 500, 'rgba(0, 200, 0, .8)']
+        ]
+      ];
+
+      ctx.globalCompositeOperation = 'lighter'
+
+      function getDistance(p1, p2) {
+        return Math.sqrt(
+            (p1[0] - p2[0]) * (p1[0] - p2[0]) + (p1[1] - p2[1]) * (p1[1] - p2[1])
+        );
+    }
+      function directLine(points) {
+          let color  = points[0][2];
+          var len = points.length - 1;
+          var ret = [];
+          var distance = getDistance(points[0], points[1]);
+          var segs = distance / 2;
+          segs = segs < len ? len : segs;
+          let k = (points[1][1] - points[0][1]) / (points[1][0] - points[0][0]);
+          let angle = Math.atan(k);
+          let X = points[0][0];
+          let Y = points[0][1];
+          for (let i = 0; i < segs; i++) {
+              let pos = (distance / segs) * i;
+              let dX = Math.round(Math.cos(angle) * pos);
+              let dY = Math.round(Math.sin(angle) * pos);
+              if (points[0][0] <= points[1][0]) {
+                  ret.push([X + dX, Y + dY, color]);
+              } else {
+                  ret.push([X - dX, Y - dY, color]);
+              }
+          }
+          return ret;
+      }
+
+      let pointsCollect = [];
+      
+      lines.forEach((line) => {
+        let pointList = [];
+        for(let i = 0; i < line.length - 1; i++) {
+          pointList = pointList.concat(directLine([line[i], line[i + 1]]));
+        }
+        pointsCollect.push({
+          step: 0,
+          pointList: pointList
+        });
+      })
+      
+      function drawAnimate(pointsCollect) {
+        ctx_animate.globalCompositeOperation = 'destination-in';
+        ctx_animate.fillStyle = 'rgba(0,0,0,0.95)';
+        ctx_animate.fillRect(0, 0, 600, 600);
+        ctx_animate.shadowColor = 'rgba(255,255,255,1)';
+        ctx_animate.shadowBlur = 2;
+        ctx_animate.globalAlpha = 1;
+        ctx_animate.globalCompositeOperation = 'source-over';
+        ctx_animate.save();
+        pointsCollect.forEach((pointList) => {
+          ctx_animate.beginPath();
+          ctx_animate.moveTo(pointList.pointList[pointList.step][0],pointList.pointList[pointList.step][1]);
+          ctx_animate.lineTo(pointList.pointList[pointList.step + 1][0],pointList.pointList[pointList.step + 1][1]);
+          ctx_animate.lineTo(pointList.pointList[pointList.step + 2][0],pointList.pointList[pointList.step + 2][1]);
+          ctx_animate.lineTo(pointList.pointList[pointList.step + 3][0],pointList.pointList[pointList.step + 3][1]);
+          ctx_animate.lineTo(pointList.pointList[pointList.step + 4][0],pointList.pointList[pointList.step + 4][1]);
+          ctx_animate.lineTo(pointList.pointList[pointList.step + 5][0],pointList.pointList[pointList.step + 5][1]);
+
+          ctx_animate.lineWidth = 1;
+          console.log(pointList.pointList[pointList.step][2])
+
+          ctx_animate.strokeStyle = pointList.pointList[pointList.step][2];
+          ctx_animate.stroke();
+
+          ctx_animate.closePath();
+
+          pointList.step ++;
+
+          if(pointList.step >= pointList.pointList.length - 5) {
+            pointList.step = 0;
+          }
+        })
+
+      }
+
+      function animate() {
+        drawAnimate(pointsCollect)
+
+        window.requestAnimationFrame(animate)
+      }
+
+      window.requestAnimationFrame(animate)
+ 
+	</script>
+</html>

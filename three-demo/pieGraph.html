@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>blink-point</title>
+<style>
+	*{
+		margin: 0;
+		padding: 0;
+	}
+  html,body {
+    width: 100%;
+    height: 100%;
+    /* background: linear-gradient(to bottom, #00092b , #000000 , #000000 , #00092b ); */
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+.bargraph { display: grid; width: 150px; height: 100px; padding: 10px; transform: scaleY(3); grid-template-columns: repeat(5, 20%);}
+.bargraph div { margin: 0 2px;}
+.bargraph div:nth-child(1) { background: linear-gradient(to bottom, transparent 75%, #37c 0, #37c 85%, #3c7 0);}
+.bargraph div:nth-child(2) { background: linear-gradient(to bottom, transparent 74%, #37c 0, #37c 89%, #3c7 0);}
+.bargraph div:nth-child(3) { background: linear-gradient(to bottom, transparent 60%, #37c 0, #37c 83%, #3c7 0);}
+.bargraph div:nth-child(4) { background: linear-gradient(to bottom, transparent 55%, #37c 0, #37c 75%, #3c7 0);}
+.bargraph div:nth-child(5) { background: linear-gradient(to bottom, transparent 32%, #37c 0, #37c 63%, #3c7 0);}
+</style>
+</head>
+<body>
+  <div class="bargraph">
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+    <div></div>
+  </div>
+</body>
+<script>
+    
+</script>
+</html>
