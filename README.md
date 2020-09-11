@@ -1,2 +1,0 @@
-# learning
-some learning demo
