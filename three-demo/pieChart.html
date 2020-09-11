@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>blink-point</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/zrender/4.3.2/zrender.js"></script>
+<style>
+	*{
+		margin: 0;
+		padding: 0;
+	}
+  html,body {
+    width: 100%;
+    height: 100%;
+    /* background: linear-gradient(to bottom, #00092b , #000000 , #000000 , #00092b ); */
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+</style>
+</head>
+<body>
+  <canvas id="canvas" ></canvas>
+	</body>
+	 <script>
+     window.onload = function() {
+        var canvas = document.getElementById('canvas');
+        let zr = zrender.init(canvas, {
+          width: 1000,
+          height: 800
+        });
+
+        let data = [
+                {value: 10, name: 'rose1', color: '#bda29a'},
+                {value: 5, name: 'rose2', color: '#ca8622'},
+                {value: 15, name: 'rose3', color: '#749f83'},
+                {value: 25, name: 'rose4', color: '#91c7ae'},
+                {value: 20, name: 'rose5', color: '#d48265'},
+                {value: 35, name: 'rose6', color: '#61a0a8'},
+                {value: 30, name: 'rose7', color: '#2f4554'},
+                {value: 40, name: 'rose8', color: '#c23531'}
+            ]
+   
+        
+        let total = data.reduce((pre, curr)=>{
+          return pre + curr.value;
+        },0)
+
+        let currAngle = 0;
+
+        data.forEach((item, index)=> {
+
+          let ratio = item.value / total
+          let angle = 2 * Math.PI / data.length;
+          let startAngle = currAngle;
+          let endAngle;
+          if(index === data.length - 1) {
+              endAngle = currAngle = 2 * Math.PI;
+          }else{
+              endAngle = currAngle = currAngle + angle;
+          }
+          let r = 100000 * ratio;
+          r = Math.max(Math.sqrt(r), 35);
+          let sector = new zrender.Sector({
+          shape: {
+            cx: 500,
+            cy: 400,
+            r: 20,
+            r0: r,
+            startAngle: startAngle,
+            endAngle: endAngle
+          },
+          style: {
+              fill: item.color,
+            lineWidth: 0
+          }
+         
+        });
+        let isOnAnimation = false;
+        let midAngle = (startAngle + endAngle) / 2;            
+              
+        let sectorCenter = [r * Math.cos(midAngle) + 500, r * Math.sin(midAngle) + 400];
+        let a = sectorCenter[0] > 500 ? 1 : -1;
+        let b = sectorCenter[1] > 400 ? 1 : -1;
+
+        let textOffsetY = sectorCenter[1] > 400 ? 10 : -10;
+        let textPosition = sectorCenter[0] > 500 ? 'right' : 'left';
+
+        let popLine = [
+          sectorCenter,
+          [sectorCenter[0] + 20 * a, sectorCenter[1] + 20 * b],
+          [sectorCenter[0] + 20 * a + 50 * a, sectorCenter[1] + 20 * b]
+        ]
+        let polyLine = new zrender.Polyline(
+          {
+            shape:{
+              points: popLine
+            },
+            style:{
+              stroke: item.color,
+              text: item.name, 
+              fontSize: 14,  
+              textFill: item.color,
+              textPosition : textPosition,
+              textOffset: [0, textOffsetY]
+            }
+          }
+        ) 
+        zr.add(polyLine); 
+        sector.on('mousemove', function () {
+          zr.refresh();
+          if(!isOnAnimation && sector.shape.r0 === r) {
+              isOnAnimation = true;
+              sector.animate('shape', false)
+              .when(100, {r0: r + 20})
+              .done(function () {
+                console.log(111)
+                isOnAnimation = false
+              })
+              .start();
+            }
+          }, sector);
+          sector.on('mouseout', function() {
+            sector.animate('shape', false)
+              .when(100, {r0: r})
+              .start();
+          }, this)
+          zr.add(sector);
+        })
+
+      }
+      
+	</script>
+</html>

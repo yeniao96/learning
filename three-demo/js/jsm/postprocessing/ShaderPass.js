@@ -34,6 +34,7 @@ var ShaderPass = function ( shader, textureID ) {
 		} );
 
 	}
+
 	this.fsQuad = new Pass.FullScreenQuad( this.material );
 
 };
@@ -44,11 +45,11 @@ ShaderPass.prototype = Object.assign( Object.create( Pass.prototype ), {
 
 	render: function ( renderer, writeBuffer, readBuffer /*, deltaTime, maskActive */ ) {
 
-		// if ( this.uniforms[ this.textureID ] ) {
+		if ( this.uniforms[ this.textureID ] ) {
 
-		// 	this.uniforms[ this.textureID ].value = readBuffer.texture;
+			this.uniforms[ this.textureID ].value = readBuffer.texture;
 
-		// }
+		}
 
 		this.fsQuad.material = this.material;
 

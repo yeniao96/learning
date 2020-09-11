@@ -32,7 +32,6 @@ var UnrealBloomPass = function ( resolution, strength, radius, threshold ) {
 	Pass.call( this );
 
 	this.strength = ( strength !== undefined ) ? strength : 1;
-
 	this.radius = radius;
 	this.threshold = threshold;
 	this.resolution = ( resolution !== undefined ) ? new Vector2( resolution.x, resolution.y ) : new Vector2( 256, 256 );
@@ -47,7 +46,6 @@ var UnrealBloomPass = function ( resolution, strength, radius, threshold ) {
 	this.nMips = 5;
 	var resx = Math.round( this.resolution.x / 2 );
 	var resy = Math.round( this.resolution.y / 2 );
-
 
 	this.renderTargetBright = new WebGLRenderTarget( resx, resy, pars );
 	this.renderTargetBright.texture.name = "UnrealBloomPass.bright";
@@ -99,7 +97,7 @@ var UnrealBloomPass = function ( resolution, strength, radius, threshold ) {
 	var resx = Math.round( this.resolution.x / 2 );
 	var resy = Math.round( this.resolution.y / 2 );
 
-	for ( var i = 0; i < 5; i ++ ) {
+	for ( var i = 0; i < this.nMips; i ++ ) {
 
 		this.separableBlurMaterials.push( this.getSeperableBlurMaterial( kernelSizeArray[ i ] ) );
 
@@ -136,10 +134,9 @@ var UnrealBloomPass = function ( resolution, strength, radius, threshold ) {
 	}
 
 	var copyShader = CopyShader;
+
 	this.copyUniforms = UniformsUtils.clone( copyShader.uniforms );
 	this.copyUniforms[ "opacity" ].value = 1.0;
-
-
 
 	this.materialCopy = new ShaderMaterial( {
 		uniforms: this.copyUniforms,
@@ -154,8 +151,8 @@ var UnrealBloomPass = function ( resolution, strength, radius, threshold ) {
 	this.enabled = true;
 	this.needsSwap = false;
 
-	this.oldClearColor = new Color(0,0,0);
-	this.oldClearAlpha = 0;
+	this.oldClearColor = new Color();
+	this.oldClearAlpha = 1;
 
 	this.basic = new MeshBasicMaterial();
 
@@ -207,24 +204,25 @@ UnrealBloomPass.prototype = Object.assign( Object.create( Pass.prototype ), {
 	},
 
 	render: function ( renderer, writeBuffer, readBuffer, deltaTime, maskActive ) {
+
 		this.oldClearColor.copy( renderer.getClearColor() );
 		this.oldClearAlpha = renderer.getClearAlpha();
 		var oldAutoClear = renderer.autoClear;
 		renderer.autoClear = false;
+
 		renderer.setClearColor( this.clearColor, 0 );
+
 		if ( maskActive ) renderer.state.buffers.stencil.setTest( false );
 
 		// Render input to screen
+
 		if ( this.renderToScreen ) {
 
 			this.fsQuad.material = this.basic;
-
 			this.basic.map = readBuffer.texture;
-			this.basic.transparent = true;
-			this.basic.depthTest = false;
+
 			renderer.setRenderTarget( null );
-			renderer.setClearColor( 0xffffff, 0);
-			// renderer.clearColor();
+			renderer.clear();
 			this.fsQuad.render( renderer );
 
 		}
@@ -246,6 +244,7 @@ UnrealBloomPass.prototype = Object.assign( Object.create( Pass.prototype ), {
 		for ( var i = 0; i < this.nMips; i ++ ) {
 
 			this.fsQuad.material = this.separableBlurMaterials[ i ];
+
 			this.separableBlurMaterials[ i ].uniforms[ "colorTexture" ].value = inputRenderTarget.texture;
 			this.separableBlurMaterials[ i ].uniforms[ "direction" ].value = UnrealBloomPass.BlurDirectionX;
 			renderer.setRenderTarget( this.renderTargetsHorizontal[ i ] );
@@ -300,6 +299,7 @@ UnrealBloomPass.prototype = Object.assign( Object.create( Pass.prototype ), {
 	},
 
 	getSeperableBlurMaterial: function ( kernelRadius ) {
+
 		return new ShaderMaterial( {
 
 			defines: {

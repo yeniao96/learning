@@ -12,7 +12,7 @@ import {
 	Vector2,
 	WebGLRenderTarget
 } from "../../../build/three.module.js";
-import { CopyShader_EX } from "../shaders/CopyShader.js";
+import { CopyShader } from "../shaders/CopyShader.js";
 import { ShaderPass } from "../postprocessing/ShaderPass.js";
 import { MaskPass } from "../postprocessing/MaskPass.js";
 import { ClearMaskPass } from "../postprocessing/MaskPass.js";
@@ -59,7 +59,7 @@ var EffectComposer = function ( renderer, renderTarget ) {
 
 	// dependencies
 
-	if ( CopyShader_EX === undefined ) {
+	if ( CopyShader === undefined ) {
 
 		console.error( 'THREE.EffectComposer relies on CopyShader' );
 
@@ -70,10 +70,8 @@ var EffectComposer = function ( renderer, renderTarget ) {
 		console.error( 'THREE.EffectComposer relies on ShaderPass' );
 
 	}
-	CopyShader_EX.uniforms.tDiffuse = new THREE.CanvasTexture(this.renderer.domElement);
-	console.log('copyShader',CopyShader_EX )
 
-	// this.copyPass = new ShaderPass( CopyShader_EX );
+	this.copyPass = new ShaderPass( CopyShader );
 
 	this.clock = new Clock();
 
@@ -90,10 +88,8 @@ Object.assign( EffectComposer.prototype, {
 	},
 
 	addPass: function ( pass ) {
-		if(pass.textureID !== "tDiffuse"){
-			this.passes.push( pass );
 
-		}
+		this.passes.push( pass );
 		pass.setSize( this._width * this._pixelRatio, this._height * this._pixelRatio );
 
 	},
@@ -142,6 +138,7 @@ Object.assign( EffectComposer.prototype, {
 			pass = this.passes[ i ];
 
 			if ( pass.enabled === false ) continue;
+
 			pass.renderToScreen = ( this.renderToScreen && this.isLastEnabledPass( i ) );
 			pass.render( this.renderer, this.writeBuffer, this.readBuffer, deltaTime, maskActive );
 
@@ -155,7 +152,7 @@ Object.assign( EffectComposer.prototype, {
 					//context.stencilFunc( context.NOTEQUAL, 1, 0xffffffff );
 					stencil.setFunc( context.NOTEQUAL, 1, 0xffffffff );
 
-					// this.copyPass.render( this.renderer, this.writeBuffer, this.readBuffer, deltaTime );
+					this.copyPass.render( this.renderer, this.writeBuffer, this.readBuffer, deltaTime );
 
 					//context.stencilFunc( context.EQUAL, 1, 0xffffffff );
 					stencil.setFunc( context.EQUAL, 1, 0xffffffff );

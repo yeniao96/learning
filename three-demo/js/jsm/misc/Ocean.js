@@ -12,6 +12,11 @@ import {
 	NearestFilter,
 	OrthographicCamera,
 	PlaneBufferGeometry,
+	Shape,
+	ExtrudeGeometry,
+	ShapeGeometry,
+	ShapeBufferGeometry,
+	BufferAttribute,
 	RGBAFormat,
 	RepeatWrapping,
 	Scene,
@@ -227,8 +232,30 @@ var Ocean = function ( renderer, camera, scene, options ) {
 };
 
 Ocean.prototype.generateMesh = function () {
+	// var x = 0, y = 0;
+
+	// var heartShape = new Shape();
+	
+	// heartShape.moveTo( x + 1000, y + 1000 );
+	// heartShape.lineTo( x - 1000, y + 1000 );
+	// heartShape.lineTo( x - 1000, y - 1000 );
+	// heartShape.lineTo( x + 1000, y - 1000 );
+	// heartShape.lineTo( x + 1000, y + 1000 );
+	
+	// var extrudeSettings = {
+	// 	steps: 2,
+	// 	depth: 1,
+	// 	bevelEnabled: true,
+	// 	bevelThickness: 1,
+	// 	bevelSize: 1,
+	// 	bevelOffset: 0,
+	// 	bevelSegments: 1
+	// };
+	
+	// var geometry = new ExtrudeGeometry( heartShape, extrudeSettings );
 
 	var geometry = new PlaneBufferGeometry( this.geometrySize, this.geometrySize, this.geometryResolution, this.geometryResolution );
+	console.log(geometry.attributes.position.array)
 
 	geometry.rotateX( - Math.PI / 2 );
 

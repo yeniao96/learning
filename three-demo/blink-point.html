@@ -26,8 +26,14 @@
       var ctx = canvas.getContext('2d');
       canvas.width = 200;
       canvas.height = 200;
-      
-      
+      canvas.style.width = '200px';
+      canvas.style.height = '200px';
+
+      // ctx.beginPath();
+      // ctx.moveTo(100, 160);
+      // ctx.lineTo(100, 190);
+      // ctx.strokeStyle = 'red';
+      // ctx.stroke();
       
       function randomPaint_C() {
         var t = (performance.now() % 1000 ) / 1000;
@@ -88,6 +94,6 @@
         ctx.lineWidth = 2;
         ctx.stroke();
       }
-      setInterval(randomPaint_B, 20)
+      setInterval(randomPaint_B, 10)
 	</script>
 </html>

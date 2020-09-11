@@ -33,6 +33,7 @@ RenderPass.prototype = Object.assign( Object.create( Pass.prototype ), {
 		renderer.autoClear = false;
 
 		var oldClearColor, oldClearAlpha, oldOverrideMaterial;
+
 		if ( this.overrideMaterial !== undefined ) {
 
 			oldOverrideMaterial = this.scene.overrideMaterial;
@@ -60,7 +61,6 @@ RenderPass.prototype = Object.assign( Object.create( Pass.prototype ), {
 
 		// TODO: Avoid using autoClear properties, see https://github.com/mrdoob/three.js/pull/15571#issuecomment-465669600
 		if ( this.clear ) renderer.clear( renderer.autoClearColor, renderer.autoClearDepth, renderer.autoClearStencil );
-
 		renderer.render( this.scene, this.camera );
 
 		if ( this.clearColor ) {

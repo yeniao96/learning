@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>mapbox-and-three</title>
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.js"></script>
+    <script type="text/javascript" src="./build/three.js"></script>
+
+    <!-- <script src="https://cdn.bootcdn.net/ajax/libs/three.js/109/three.min.js"></script> -->
+    <script src="./js/OrbitControls.js"></script>
+
+		<script src="js/shaders/FXAAShader.js"></script>
+		<script src="js/shaders/ConvolutionShader.js"></script>
+		<script src="js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/tween.js/18.6.0/tween.umd.js"></script>
+
+		<script src="js/CameraSync.js"></script>
+
+
+    <link
+      href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
+      #model{
+        position: absolute;
+        z-index: 10;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map">
+      <div id="model"></div>                                                                                   
+    </div>
+    <script type='module'>
+      import { EffectComposer } from './js/jsm/postprocessing/EffectComposer.js';
+      import { RenderPass } from './js/jsm/postprocessing/RenderPass.js';
+      import { ShaderPass } from './js/jsm/postprocessing/ShaderPass.js';
+      import { OutlinePass } from './js/jsm/postprocessing/OutlinePass.js';
+      import { UnrealBloomPass } from './js/jsm/postprocessing/UnrealBloomPass.js';
+      import { BloomPass } from './js/jsm/postprocessing/BloomPass.js';
+      import { FilmPass } from './js/jsm/postprocessing/FilmPass.js';
+      import { CopyShader } from './js/jsm/shaders/CopyShader.js';
+      import { FXAAShader } from './js/jsm/shaders/FXAAShader.js';
+
+
+
+      mapboxgl.accessToken =
+        'pk.eyJ1IjoiZWR5ZGF0YSIsImEiOiJjajZobmwzdzcwYjMxMzJteTd2Y3A0MGVyIn0.kw8CoNgHKeywtca6JlK2UA';
+
+      var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/dark-v10',
+        zoom: 13,
+        pitch: 60,
+        bearing:30,
+        center: [120.597890997523,31.3189215840662],
+      });
+
+      
+
+      map.on('load', function() {
+          // Change the source to filter
+
+          var modelOrigin = [120.597890997523,31.3189215840662];
+          var modelAltitude = 0;
+          var modelRotate = [0, 0, 0];
+          
+          var modelAsMercatorCoordinate = mapboxgl.MercatorCoordinate.fromLngLat(
+            modelOrigin,
+            modelAltitude
+          );
+          
+          // transformation parameters to position, rotate and scale the 3D model onto the map
+          var modelTransform = {
+            translateX: modelAsMercatorCoordinate.x,
+            translateY: modelAsMercatorCoordinate.y,
+            translateZ: modelAsMercatorCoordinate.z,
+            rotateX: modelRotate[0],
+            rotateY: modelRotate[1],
+            rotateZ: modelRotate[2],
+            /* Since our 3D model is in real world meters, a scale transform needs to be
+            * applied since the CustomLayerInterface expects units in MercatorCoordinates.
+            */
+            scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits()
+          };
+          
+
+          var customLayer = {
+            id: '3d-model',
+            type: 'custom',
+            renderingMode: '3d',
+            onAdd: function(map, gl) {
+              // this.camera = new THREE.PerspectiveCamera(100, window.innerWidth / window.innerHeight, 1, 1000);
+              this.camera = new THREE.Camera();
+
+              this.scene = new THREE.Scene();
+              
+              // create two three.js lights to illuminate the model
+              var directionalLight = new THREE.DirectionalLight(0xffffff);
+              directionalLight.position.set(0, -70, 100).normalize();
+              this.scene.add(directionalLight);
+              
+              var directionalLight2 = new THREE.DirectionalLight(0xffffff);
+              directionalLight2.position.set(0, 70, 100).normalize();
+              this.scene.add(directionalLight2);
+
+              function lonlatToMercator(lon, lat, height) {
+                var z = height ? height : 0;
+                var x = (lon / 180.0) * 20037508.3427892;
+                var y = (Math.PI / 180.0) * lat;
+                var tmp = Math.PI / 4.0 + y / 2.0;
+                y = (20037508.3427892 * Math.log(Math.tan(tmp))) / Math.PI;
+                return { x: x, y: y, z: z };
+              }
+        
+              // 找到地图的中心对应的经纬度坐标
+              var center = lonlatToMercator(120.597890997523,31.3189215840662, 1);
+              
+              function lonlatToThree(lon, lat, height) {
+                var z = height ? height : 0;
+                var x = (lon / 180.0) * 20037508.34;
+                var y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180);
+                y = y * 20037508.34 / 180;
+                var result = {
+                  x: x - center.x,
+                  y: y - center.y,
+                  z: z - center.z
+                };
+                return [result.x/1.18 , result.y/1.18];
+              }
+              let that = this;
+
+              function createRoadLine(startp, endp) {
+
+                const fs = `
+
+                  #define USE_FOG;
+                  ${THREE.ShaderChunk["fog_pars_fragment"]}
+                  varying vec3 vColor;
+                  varying vec2 vUv; 
+                  uniform vec2 uFade;
+                  void main() {
+                    vec3 color = vec3(vColor);
+                    float fadeStart = 0.4;
+                    float maxFade = 0.;
+                    float alpha = 1.;
+
+                    alpha = smoothstep(uFade.x, uFade.y, vUv.x);
+                    gl_FragColor = vec4(color,alpha);
+                    if (gl_FragColor.a < 0.0001) discard;
+                    ${THREE.ShaderChunk["fog_fragment"]}
+                  }
+                `;
+
+
+                const vs = `
+                  #define USE_FOG;
+                  // ${THREE.ShaderChunk["fog_pars_vertex"]}
+                  attribute vec3 aOffset;
+                  attribute vec3 aMetrics;
+                  attribute vec3 aColor;
+
+                  
+
+                  uniform float uTravelLength;
+                  uniform float uTime;
+                  uniform float uSpeed;
+
+                  varying vec2 vUv; 
+                  varying vec3 vColor; 
+                  #include <getDistortion_vertex>
+
+                  void main() {
+                    vec3 transformed = position.xyz;
+                    float radius = aMetrics.r;
+                    float myLength = aMetrics.g;
+                    float speed = aMetrics.b;
+
+                    transformed.xy *= radius ;
+                    transformed.z *= myLength;
+                  
+                    // Add my length to make sure it loops after the lights hits the end
+                    transformed.z += myLength-mod( uTime *speed + aOffset.z, uTravelLength);
+                    transformed.xy += aOffset.xy;
+
+
+                    float progress = abs(transformed.z / uTravelLength);
+                    transformed.xyz += getDistortion(progress);
+
+                    vec4 mvPosition = modelViewMatrix * vec4(transformed,1.);
+                    gl_Position = projectionMatrix * mvPosition;
+                    vUv = uv;
+                    vColor = aColor;
+                    // ${THREE.ShaderChunk["fog_vertex"]}
+                  }`;
+
+                   let options = {
+                      onSpeedUp: (ev) => {					
+                      },
+                      onSlowDown: (ev) => {
+                      },
+                      // mountainDistortion || LongRaceDistortion || xyDistortion || turbulentDistortion || turbulentDistortionStill || deepDistortionStill || deepDistortion
+                      distortion: {
+                        uniforms: {
+                          // x,x, y,y
+                          uFreq: new THREE.Uniform(new THREE.Vector4(4, 8, 8, 1)),
+                          uAmp: new THREE.Uniform(new THREE.Vector4(25, 5, 10, 10))
+                        },
+                        getDistortion: `
+                              uniform vec4 uFreq;
+                              uniform vec4 uAmp;
+                              float nsin(float val){
+                              return sin(val) * 0.5+0.5;
+                              }
+                          
+                              #define PI 3.14159265358979
+                              float getDistortionX(float progress){
+                                  return 
+                                          (
+                                              cos( PI * progress * uFreq.r + uTime) * uAmp.r +
+                                              pow(cos(PI * progress * uFreq.g + uTime * (uFreq.g / uFreq.r)),2. )* uAmp.g
+                                          
+                                          );
+                              }
+                              float getDistortionY(float progress){
+                                  return 
+                                          (
+                                              -nsin( PI * progress * uFreq.b + uTime) * uAmp.b +
+                                              -pow(nsin(PI * progress * uFreq.a + uTime / (uFreq.b / uFreq.a) ),5.) * uAmp.a
+                                          
+                                          );
+                              }
+                              vec3 getDistortion(float progress){
+                                  return vec3(
+                                      getDistortionX(progress)-getDistortionX(0.0125) ,
+                                      getDistortionY(progress)- getDistortionY(0.0125),
+                                      0.
+                                  );
+                              }
+                          `,
+                        getJS: (progress, time) => {
+                          const uFreq = turbulentUniforms.uFreq.value;
+                          const uAmp = turbulentUniforms.uAmp.value;
+
+                          const getX = p =>
+                            Math.cos(Math.PI * p * uFreq.x + time) * uAmp.x +
+                            Math.pow(
+                              Math.cos(Math.PI * p * uFreq.y + time * (uFreq.y / uFreq.x)),
+                              2
+                            ) *
+                              uAmp.y;
+                          const getY = p =>
+                            -nsin(Math.PI * p * uFreq.z + time) * uAmp.z -
+                            Math.pow(nsin(Math.PI * p * uFreq.w + time / (uFreq.z / uFreq.w)), 5) *
+                              uAmp.w;
+
+                          let distortion = new THREE.Vector3(
+                            getX(progress) - getX(progress + 0.007),
+                            getY(progress) - getY(progress + 0.007),
+                            0
+                          );
+                          let lookAtAmp = new THREE.Vector3(-2, -5, 0);
+                          let lookAtOffset = new THREE.Vector3(0, 0, -10);
+                          return distortion.multiply(lookAtAmp).add(lookAtOffset);
+                        }
+                      }, 
+                      
+                      length: 400,
+                      roadWidth: 10,
+                      islandWidth: 5,
+                      lanesPerRoad: 2,
+
+                      fov: 90,
+                      fovSpeedUp: 150,
+                      speedUp: 2,
+                      carLightsFade: 0.4,
+
+                      totalSideLightSticks: 50,
+                      lightPairsPerRoadWay: 70,
+
+                      // Percentage of the lane's width
+                      shoulderLinesWidthPercentage: 0.05,
+                      brokenLinesWidthPercentage: 0.1,
+                      brokenLinesLengthPercentage: 0.5,
+
+                      /*** These ones have to be arrays of [min,max].  ***/
+                      lightStickWidth: [0.12, 0.5],
+                      lightStickHeight: [1.3, 1.7],
+
+                      movingAwaySpeed: [60, 80],
+                      movingCloserSpeed: [-120, -160],
+
+                      /****  Anything below can be either a number or an array of [min,max] ****/
+
+                      // Length of the lights. Best to be less than total length
+                      carLightsLength: [400 * 0.05, 400 * 0.15],
+                      // Radius of the tubes
+                      carLightsRadius: [0.05, 0.14],
+                      // Width is percentage of a lane. Numbers from 0 to 1
+                      carWidthPercentage: [0.3, 0.5],
+                      // How drunk the driver is.
+                      // carWidthPercentage's max + carShiftX's max -> Cannot go over 1. 
+                      // Or cars start going into other lanes 
+                      carShiftX: [-0.2, 0.2],
+                      // Self Explanatory
+                      carFloorSeparation: [0.05, 1],
+
+                      colors: {
+                        roadColor: 0x080808,
+                        islandColor: 0x0a0a0a,
+                        background: 0x000000,
+                        shoulderLines: 0x131318,
+                        brokenLines: 0x131318,
+                        /***  Only these colors can be an array ***/
+                        leftCars: [0xFFFFFF, 0xFFFFFF, 0xFFFFFF],
+                        rightCars: [0xA4E3E6, 0x80D1D4, 0x53C2C6],
+                        sticks: 0xA4E3E6,
+                      }
+                    };
+                   let colors = [0xA4E3E6, 0x80D1D4, 0x53C2C6];
+                   let speed = [60, 80];
+                   let fade = {
+                     x: 0,
+                     y: 0.6
+                   };
+
+                   let curve = new THREE.LineCurve3(
+                    new THREE.Vector3(0, 0, 0),
+                    new THREE.Vector3(0, 0, -1)
+                  );
+                  // Tube with radius = 1
+                  let geometry = new THREE.TubeBufferGeometry(curve, 40, 1, 8, false);
+
+                  let instanced = new THREE.InstancedBufferGeometry().copy(geometry);
+                  instanced.maxInstancedCount = options.lightPairsPerRoadWay * 2;
+
+                  let laneWidth = options.roadWidth / options.lanesPerRoad;
+
+                  let aOffset = [];
+                  let aMetrics = [];
+                  let aColor = [];
+
+                  let colors = this.colors;
+                  if (Array.isArray(colors)) {
+                    colors = colors.map(c => new THREE.Color(c));
+                  } else {
+                    colors = new THREE.Color(colors);
+                  }
+
+                  for (let i = 0; i < options.lightPairsPerRoadWay; i++) {
+                    let radius = random(options.carLightsRadius);
+                    let length = random(options.carLightsLength);
+                    let speed = random(this.speed);
+
+                    let carLane = i % 3;
+                    let laneX = carLane * laneWidth - options.roadWidth / 2 + laneWidth / 2;
+
+                    let carWidth = random(options.carWidthPercentage) * laneWidth;
+                    // Drunk Driving
+                    let carShiftX = random(options.carShiftX) * laneWidth;
+                    // Both lights share same shiftX and lane;
+                    laneX += carShiftX;
+
+                    let offsetY = random(options.carFloorSeparation) + radius * 1.3;
+
+                    let offsetZ = -random(options.length);
+
+                    aOffset.push(laneX - carWidth / 2);
+                    aOffset.push(offsetY);
+                    aOffset.push(offsetZ);
+
+                    aOffset.push(laneX + carWidth / 2);
+                    aOffset.push(offsetY);
+                    aOffset.push(offsetZ);
+
+                    aMetrics.push(radius);
+                    aMetrics.push(length);
+                    aMetrics.push(speed);
+
+                    aMetrics.push(radius);
+                    aMetrics.push(length);
+                    aMetrics.push(speed);
+
+                    let color = pickRandom(colors);
+                    aColor.push(color.r);
+                    aColor.push(color.g);
+                    aColor.push(color.b);
+
+                    aColor.push(color.r);
+                    aColor.push(color.g);
+                    aColor.push(color.b);
+                  }
+                  instanced.addAttribute(
+                    "aOffset",
+                    new THREE.InstancedBufferAttribute(new Float32Array(aOffset), 3, false)
+                  );
+                  instanced.addAttribute(
+                    "aMetrics",
+                    new THREE.InstancedBufferAttribute(new Float32Array(aMetrics), 3, false)
+                  );
+                  instanced.addAttribute(
+                    "aColor",
+                    new THREE.InstancedBufferAttribute(new Float32Array(aColor), 3, false)
+                  );
+                  let material = new THREE.ShaderMaterial({
+                    fragmentShader: carLightsFragment,
+                    vertexShader: carLightsVertex,
+                    transparent: true,
+                    uniforms: Object.assign(
+                      {
+                        // uColor: new THREE.Uniform(new THREE.Color(this.color)),
+                        uTime: new THREE.Uniform(0),
+                        uTravelLength: new THREE.Uniform(options.length),
+                        uFade: new THREE.Uniform(fade)
+                      },
+                      // this.webgl.fogUniforms,
+                      options.distortion.uniforms
+                    )
+                  });
+                  material.onBeforeCompile = shader => {
+                    shader.vertexShader = shader.vertexShader.replace(
+                      "#include <getDistortion_vertex>",
+                      options.distortion.getDistortion
+                    );
+                    console.log(shader.vertex);
+                  };
+                  let mesh = new THREE.Mesh(instanced, material);
+                  mesh.frustumCulled = false;
+                  setInterval(()=> {
+                    mesh.material.uniforms.uTime.value += 0.01;
+                  }, 100)
+                  return mesh;
+              }
+
+
+              this.scene.add(createRoadLine([111.75,40.84],[115.65,35.38]));
+
+              var pixelRatio = this.renderer.getPixelRatio();
+
+              this.renderer.setPixelRatio(window.devicePixelRatio);
+              this.renderer.autoClear = false;
+            },
+            render: function(gl, matrix) {
+            
+              var m = new THREE.Matrix4().fromArray(matrix);
+              var l = new THREE.Matrix4()
+              .makeTranslation(
+                modelTransform.translateX,
+                modelTransform.translateY,
+                modelTransform.translateZ
+              )
+              .scale(
+                new THREE.Vector3(
+                  modelTransform.scale,
+                  -modelTransform.scale,
+                  modelTransform.scale
+                )
+              )
+            
+              this.camera.projectionMatrix = m.multiply(l);
+              this.renderer.state.reset();
+              this.renderer.render(this.scene, this.camera);
+
+              this.map.triggerRepaint();
+            }
+          };
+          map.addLayer(customLayer);
+          function lonlatToMercator(lon, lat, height) {
+            var z = height ? height : 0;
+            var x = (lon / 180.0) * 20037508.3427892;
+            var y = (Math.PI / 180.0) * lat;
+            var tmp = Math.PI / 4.0 + y / 2.0;
+            y = (20037508.3427892 * Math.log(Math.tan(tmp))) / Math.PI;
+            return { x: x, y: y, z: z };
+          }
+  
+        // 找到地图的中心对应的经纬度坐标
+          var center = lonlatToMercator(120.597890997523,31.3189215840662, 1);
+          
+          function lonlatToThree(lon, lat, height) {
+            var z = height ? height : 0;
+            var x = (lon / 180.0) * 20037508.3427892;
+            var y = (Math.PI / 180.0) * lat;
+            var tmp = Math.PI / 4.0 + y / 2.0;
+            y = (20037508.3427892 * Math.log(Math.tan(tmp))) / Math.PI;
+            var result = {
+              x: x - center.x,
+              y: y - center.y,
+              z: z - center.z
+            };
+            return [result.x, result.y ];
+          }
+
+      });
+
+      
+    </script>
+  </body>
+</html>

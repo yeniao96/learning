@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>pieChart</title>
+    <script src="https://cdn.bootcdn.net/ajax/libs/konva/7.0.5/konva.js"></script>
+<style>
+	*{
+		margin: 0;
+		padding: 0;
+	}
+  html,body {
+    width: 100%;
+    height: 100%;
+    /* background: linear-gradient(to bottom, #00092b , #000000 , #000000 , #00092b ); */
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+</style>
+</head>
+<body>
+  <div id="canvas" ></div>
+	</body>
+	 <script>
+     window.onload = function() {
+
+        var stage = new Konva.Stage({
+          container: 'canvas',
+          width: 1000,
+          height: 800,
+        });
+
+        var layer = new Konva.Layer();
+
+        let data = [
+                {value: 10, name: 'rose1', color: '#bda29a'},
+                {value: 5, name: 'rose2', color: '#ca8622'},
+                {value: 15, name: 'rose3', color: '#749f83'},
+                {value: 25, name: 'rose4', color: '#91c7ae'},
+                {value: 20, name: 'rose5', color: '#d48265'},
+                {value: 35, name: 'rose6', color: '#61a0a8'},
+                {value: 30, name: 'rose7', color: '#2f4554'},
+                {value: 40, name: 'rose8', color: '#c23531'}
+            ]
+   
+        
+        let total = data.reduce((pre, curr)=>{
+          return pre + curr.value;
+        },0)
+
+
+        data.forEach((item, index)=> {
+
+          let ratio = item.value / total
+          let angle = 360 / data.length;
+          let r = 100000 * ratio;
+          r = Math.max(Math.sqrt(r), 35);
+          var arc = new Konva.Arc({
+            x: 500,
+            y: 400,
+            innerRadius: 20,
+            outerRadius: r,
+            angle: angle,
+            rotation: angle * index,
+            fill: item.color,
+            strokeWidth: 0,
+          });
+        let isOnAnimation = false;
+        let midAngle = (Math.PI * 2 / data.length) * index +  (Math.PI * 2 / data.length) / 2;            
+        let sectorCenter = [r * Math.cos(midAngle) + 500, r * Math.sin(midAngle) + 400];
+        let a = sectorCenter[0] > 500 ? 1 : -1;
+        let b = sectorCenter[1] > 400 ? 1 : -1;
+        let textOffsetX = sectorCenter[0] > 500 ? -10 : 40;
+
+        let textOffsetY = 8;
+        let textPosition = sectorCenter[0] > 500 ? 'right' : 'left';
+
+        let popLine = [
+          sectorCenter[0],sectorCenter[1],
+          sectorCenter[0] + 20 * a, sectorCenter[1] + 20 * b,
+          sectorCenter[0] + 20 * a + 50 * a, sectorCenter[1] + 20 * b
+        ]
+        let polyLine = new Konva.Line(
+          {
+            points: popLine,
+            stroke: item.color,
+            strokeWidth: 2
+          }
+        ) 
+        layer.add(polyLine); 
+
+        var simpleText = new Konva.Text({
+          x: sectorCenter[0] + 20 * a + 50 * a,
+          y: sectorCenter[1] + 20 * b,
+          text: item.name,
+          fontSize: 14,
+          fontFamily: 'Calibri',
+          offsetX:textOffsetX,
+          offsetY: textOffsetY,
+          fill: item.color,
+        });
+        layer.add(simpleText); 
+
+          arc.on('mouseout', function () {
+            var anim = new Konva.Animation(function (frame) {
+              arc.outerRadius(
+                r 
+              );
+            }, layer);
+            anim.start();
+          });
+
+          arc.on('mousemove', function () {
+            var anim = new Konva.Animation(function (frame) {
+              arc.outerRadius(
+                r + 30
+              );
+            }, layer);
+            anim.start();
+          });
+          layer.add(arc);
+
+        })
+
+        stage.add(layer);
+
+      }
+      
+	</script>
+</html>

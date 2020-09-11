@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>mapbox-and-three</title>
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <script src="https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.js"></script>
+    <script type="text/javascript" src="./build/three.js"></script>
+
+    <!-- <script src="https://cdn.bootcdn.net/ajax/libs/three.js/109/three.min.js"></script> -->
+    <script src="./js/OrbitControls.js"></script>
+
+		<script src="js/shaders/FXAAShader.js"></script>
+		<script src="js/shaders/ConvolutionShader.js"></script>
+		<script src="js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/tween.js/18.6.0/tween.umd.js"></script>
+
+		<script src="js/CameraSync.js"></script>
+
+
+    <link
+      href="https://api.tiles.mapbox.com/mapbox-gl-js/v1.4.1/mapbox-gl.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+      }
+      #model{
+        position: absolute;
+        z-index: 10;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map">
+      <div id="model"></div>                                                                                   
+    </div>
+    <script type='module'>
+      import { EffectComposer } from './js/jsm/postprocessing/EffectComposer.js';
+      import { RenderPass } from './js/jsm/postprocessing/RenderPass.js';
+      import { ShaderPass } from './js/jsm/postprocessing/ShaderPass.js';
+      import { OutlinePass } from './js/jsm/postprocessing/OutlinePass.js';
+      import { UnrealBloomPass } from './js/jsm/postprocessing/UnrealBloomPass.js';
+      import { BloomPass } from './js/jsm/postprocessing/BloomPass.js';
+      import { FilmPass } from './js/jsm/postprocessing/FilmPass.js';
+      import { CopyShader } from './js/jsm/shaders/CopyShader.js';
+      import { FXAAShader } from './js/jsm/shaders/FXAAShader.js';
+
+
+
+      mapboxgl.accessToken =
+        'pk.eyJ1IjoiZWR5ZGF0YSIsImEiOiJjajZobmwzdzcwYjMxMzJteTd2Y3A0MGVyIn0.kw8CoNgHKeywtca6JlK2UA';
+
+      var map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/dark-v10',
+        zoom: 13,
+        pitch: 60,
+        bearing:30,
+        center: [120.597890997523,31.3189215840662],
+      });
+
+      
+
+      map.on('load', function() {
+          // Change the source to filter
+
+          var modelOrigin = [120.597890997523,31.3189215840662];
+          var modelAltitude = 0;
+          var modelRotate = [0, 0, 0];
+          
+          var modelAsMercatorCoordinate = mapboxgl.MercatorCoordinate.fromLngLat(
+            modelOrigin,
+            modelAltitude
+          );
+          
+          // transformation parameters to position, rotate and scale the 3D model onto the map
+          var modelTransform = {
+            translateX: modelAsMercatorCoordinate.x,
+            translateY: modelAsMercatorCoordinate.y,
+            translateZ: modelAsMercatorCoordinate.z,
+            rotateX: modelRotate[0],
+            rotateY: modelRotate[1],
+            rotateZ: modelRotate[2],
+            /* Since our 3D model is in real world meters, a scale transform needs to be
+            * applied since the CustomLayerInterface expects units in MercatorCoordinates.
+            */
+            scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits()
+          };
+          
+
+          var customLayer = {
+            id: '3d-model',
+            type: 'custom',
+            renderingMode: '3d',
+            onAdd: function(map, gl) {
+              // this.camera = new THREE.PerspectiveCamera(100, window.innerWidth / window.innerHeight, 1, 1000);
+              this.camera = new THREE.Camera();
+
+              this.scene = new THREE.Scene();
+              
+              // create two three.js lights to illuminate the model
+              var directionalLight = new THREE.DirectionalLight(0xffffff);
+              directionalLight.position.set(0, -70, 100).normalize();
+              this.scene.add(directionalLight);
+              
+              var directionalLight2 = new THREE.DirectionalLight(0xffffff);
+              directionalLight2.position.set(0, 70, 100).normalize();
+              this.scene.add(directionalLight2);
+
+              function lonlatToMercator(lon, lat, height) {
+                var z = height ? height : 0;
+                var x = (lon / 180.0) * 20037508.3427892;
+                var y = (Math.PI / 180.0) * lat;
+                var tmp = Math.PI / 4.0 + y / 2.0;
+                y = (20037508.3427892 * Math.log(Math.tan(tmp))) / Math.PI;
+                return { x: x, y: y, z: z };
+              }
+        
+              // 找到地图的中心对应的经纬度坐标
+              var center = lonlatToMercator(120.597890997523,31.3189215840662, 1);
+              
+              function lonlatToThree(lon, lat, height) {
+                var z = height ? height : 0;
+                var x = (lon / 180.0) * 20037508.34;
+                var y = Math.log(Math.tan((90 + lat) * Math.PI / 360)) / (Math.PI / 180);
+                y = y * 20037508.34 / 180;
+                var result = {
+                  x: x - center.x,
+                  y: y - center.y,
+                  z: z - center.z
+                };
+                return [result.x/1.18 , result.y/1.18];
+              }
+              let that = this;
+
+              function calculateGradientColor(start_color, end_color, size,  position) {
+                let r = start_color['r'] > end_color['r'] ? parseInt((start_color['r'] - end_color['r']) * position / size + end_color['r']) : parseInt((end_color['r'] - start_color['r']) * position / size + start_color['r']);
+                let g = start_color['g'] > end_color['g'] ? parseInt((start_color['g'] - end_color['g']) * position / size + end_color['g']) : parseInt((end_color['g'] - start_color['g']) * position / size + start_color['g']);
+                let b = start_color['b'] > end_color['b'] ? parseInt((start_color['b'] - end_color['b']) * position / size + end_color['b']) : parseInt((end_color['b'] - start_color['b']) * position / size + start_color['b']);
+                return `rgb(${r}, ${g}, ${b})`;
+              }
+
+
+              function createCurve(start, end) {
+
+                const start_xy = lonlatToThree(...start);
+                const end_xy = lonlatToThree(...end);
+
+                const first_control = start_xy;
+                const second_control = end_xy;
+
+
+                var curve = new THREE.CubicBezierCurve3(
+                  new THREE.Vector3( start_xy[0], start_xy[1], 0 ),
+                  new THREE.Vector3( first_control[0], first_control[1], 250000 ),
+                  new THREE.Vector3( second_control[0], second_control[1], 250000 ),
+                  new THREE.Vector3( end_xy[0], end_xy[1], 0 )
+                );
+
+                var points = curve.getPoints( 50 );
+                var geometry = new THREE.Geometry().setFromPoints( points );
+                var material = new THREE.LineBasicMaterial( { vertexColors: THREE.VertexColors } );
+                const color_s = {
+                  r:255,
+                  g:0,
+                  b:0
+                };
+                const color_e = {
+                  r:240,
+                  g:150,
+                  b:50
+                };
+                for(let i = 0; i < 51; i++) {
+                  geometry.colors.push( new THREE.Color(calculateGradientColor(color_s, color_e, 50, i)));
+                }
+                console.log(geometry.colors)
+                // Create the final object to add to the scene
+                var curveObject = new THREE.Line( geometry, material );
+
+                return curveObject;
+
+              }
+
+              function createFlyknit(startp, endp) {
+
+                const vs =  `
+
+                  attribute float size;
+
+                  attribute vec4 colors;
+
+                  varying float opacity;
+
+                  varying vec3 vexColor;
+
+                  void main(){
+
+                      vexColor.x = colors.r;
+
+                      vexColor.y = colors.g;
+
+                      vexColor.z = colors.b;
+
+                      //w分量为透明度
+
+                      opacity = colors.w;
+
+                      vec4 mvPosition = modelViewMatrix * vec4(position,1.0);
+
+                      gl_PointSize = size;
+
+                      gl_Position = projectionMatrix * mvPosition;
+
+                  }
+
+                `;
+
+                const fs = `
+
+                    uniform sampler2D texture;
+
+                    varying float opacity;
+
+                    varying vec3 vexColor;
+
+                    void main(){
+
+                        gl_FragColor = vec4(vexColor,opacity);
+
+                        gl_FragColor = gl_FragColor * texture2D(texture,gl_PointCoord);
+
+                    }     
+
+                `;
+                const start_xy = lonlatToThree(...startp);
+                const end_xy = lonlatToThree(...endp);
+
+                const first_control = start_xy;
+                const second_control = end_xy;
+
+
+                var curve = new THREE.CubicBezierCurve3(
+                  new THREE.Vector3( start_xy[0], start_xy[1], 0 ),
+                  new THREE.Vector3( first_control[0], first_control[1], 250000 ),
+                  new THREE.Vector3( second_control[0], second_control[1], 250000 ),
+                  new THREE.Vector3( end_xy[0], end_xy[1], 0 )
+                );
+                let distance = curve.getLength();
+                let pointNum = 1000;
+                var points = curve.getPoints( pointNum );
+                let size = 3;
+                let color = {
+                  r: 255,
+                  g: 255,
+                  b: 255
+                }
+                const sizeLen = points.length;
+                const colorsLen = sizeLen * 4;
+                const sizes = new Float32Array(sizeLen);
+                const colors = new Float32Array(colorsLen);
+                let geometry = new THREE.BufferGeometry().setFromPoints(points);
+                for(let i = 0, z = 0;i < colorsLen; i+=4,z++) {
+                  colors[i] = color.r;
+                  colors[i + 1] = color.g;
+                  colors[i + 2] = color.b;
+                  colors[i + 3] =  i < colorsLen / 2 ? 0 : i / (colorsLen * 4);
+                  // sizes[z] = size * ( z / sizeLen );
+                  sizes[z] = size;
+
+                }
+                geometry.setAttribute('colors', new THREE.BufferAttribute(colors, 4));
+                geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+                const shaderMaterial = new THREE.ShaderMaterial({
+                  uniforms: {
+                    texture: {
+                      value: new THREE.CanvasTexture(createSpriteCanvas(size))
+                    }
+                  },
+
+                  vertexShader:vs,
+
+                  fragmentShader:fs,
+
+                  transparent:true,
+
+                  depthTest:false
+                });
+                let particleSystem = new THREE.Points(geometry,shaderMaterial);
+
+
+                const max = Math.floor(distance * 10);
+
+                const end = pointNum;
+
+                const m = {start:0,end: end};
+                let animate = TWEEN.Easing.Linear.None;
+
+                // let tween = new TWEEN.Tween(m).to({start:max-end,end:max}, 1000).easing(animate);
+
+                // tween.onUpdate(()=>{
+                //   let pointArr = [];
+
+                //   let s = Math.round(m.start),e = Math.floor(m.end);
+
+                //   for (let i = s; i <= e && i<=max; i++) {
+
+                //     pointArr = pointArr.concat(curve.getPointAt(i / max).toArray());
+
+                //   }
+                //   geometry.attributes.position = new THREE.BufferAttribute(new Float32Array(pointArr),3);
+
+                // });
+                // tween.onComplete(() => {
+                //   console.log('complete');
+                // })
+                // // tween.repeat(Infinity).start();
+
+                return particleSystem;
+
+              }
+
+              function animate() {
+                window.requestAnimationFrame( animate );
+                // TWEEN.update()
+              }
+              animate();
+
+              function createSpriteCanvas(size){
+
+                const canvas = document.createElement('canvas');
+
+                canvas.width = canvas.height = size;
+
+                const context = canvas.getContext('2d');
+
+                if(context!=null){
+
+                  context.fillStyle='rgba(255,255,255,.0)';
+                  context.beginPath();
+
+                  context.arc(size/2,size/2,size/2,0,Math.PI*2);
+
+                  context.fillStyle = 'white';
+
+                  context.fill();
+
+                  context.closePath();
+
+                }
+                return canvas;
+              }
+
+
+
+              function calcMector(coord){
+                return mapboxgl.MercatorCoordinate.fromLngLat(
+                  coord,
+                  0
+                );
+              }
+              this.map = map;
+              
+              this.renderer = new THREE.WebGLRenderer({
+                canvas: map.getCanvas(),
+                context: gl,
+                antialias: true,
+                alpha: true
+              });
+              this.renderer.sortObjects = true;
+
+
+              this.scene.add(createCurve([111.75,40.84],[115.65,35.38]));
+              this.scene.add(createCurve([111.75,40.84], [107.85,45.30]));
+              this.scene.add(createCurve([111.75,40.84], [107.85,35.38]));
+              this.scene.add(createCurve([111.75,40.84], [115.65,45.30]));
+              // this.scene.add(createFlyknit([111.75,40.84],[115.65,35.38]));
+              // this.scene.add(createFlyknit([111.75,40.84], [107.85,45.30]));
+              // this.scene.add(createFlyknit([111.75,40.84], [107.85,35.38]));
+              // this.scene.add(createFlyknit([111.75,40.84], [115.65,45.30]));
+
+
+
+
+              var pixelRatio = this.renderer.getPixelRatio();
+
+              this.renderer.setPixelRatio(window.devicePixelRatio);
+              this.renderer.autoClear = false;
+            },
+            render: function(gl, matrix) {
+            
+              var m = new THREE.Matrix4().fromArray(matrix);
+              var l = new THREE.Matrix4()
+              .makeTranslation(
+                modelTransform.translateX,
+                modelTransform.translateY,
+                modelTransform.translateZ
+              )
+              .scale(
+                new THREE.Vector3(
+                  modelTransform.scale,
+                  -modelTransform.scale,
+                  modelTransform.scale
+                )
+              )
+            
+              this.camera.projectionMatrix = m.multiply(l);
+              this.renderer.state.reset();
+              this.renderer.render(this.scene, this.camera);
+
+              this.map.triggerRepaint();
+            }
+          };
+          map.addLayer(customLayer);
+          function lonlatToMercator(lon, lat, height) {
+            var z = height ? height : 0;
+            var x = (lon / 180.0) * 20037508.3427892;
+            var y = (Math.PI / 180.0) * lat;
+            var tmp = Math.PI / 4.0 + y / 2.0;
+            y = (20037508.3427892 * Math.log(Math.tan(tmp))) / Math.PI;
+            return { x: x, y: y, z: z };
+          }
+  
+        // 找到地图的中心对应的经纬度坐标
+          var center = lonlatToMercator(120.597890997523,31.3189215840662, 1);
+          
+          function lonlatToThree(lon, lat, height) {
+            var z = height ? height : 0;
+            var x = (lon / 180.0) * 20037508.3427892;
+            var y = (Math.PI / 180.0) * lat;
+            var tmp = Math.PI / 4.0 + y / 2.0;
+            y = (20037508.3427892 * Math.log(Math.tan(tmp))) / Math.PI;
+            var result = {
+              x: x - center.x,
+              y: y - center.y,
+              z: z - center.z
+            };
+            return [result.x, result.y ];
+          }
+
+      });
+
+      
+    </script>
+  </body>
+</html>

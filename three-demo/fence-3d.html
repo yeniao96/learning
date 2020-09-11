@@ -41,26 +41,26 @@
         z-index: 10;
         pointer-events: none;
       }
+      .ceng{
+        width: 100%;
+        position: absolute;
+        top: 58px;
+        left: 20px;
+        z-index: 999;
+        background: rgba(247, 247, 247, 0);
+        overflow: hidden;
+        padding: 0;
+      }
     </style>
   </head>
   <body>
+    <div class="ceng">
+      <button type="button" class="btn btn-primary" id="add-fence">添加3D边界</button>
+      <button type="button" class="btn btn-primary" id="remove-fence">删除3D边界</button>
+    </div>
     <div id="map">
       <div id="model"></div>
-      <!-- <div id='dialog'>
-        <div class='dialog-title'>
-          标题
-        </div>
-        <div class='dialog-form'>
-          <div><label for="price">price: </label><input type="text" name='price' id='price' placeholder="请输入金额"></div>
-          <div class='pay-type'>
-            <button class='pay-btn' id='wechat_pay'></button>
-            <button class='pay-btn' id='ali_pay'></button>
-          </div>
-          <div class="pay-qrcode" id="pay-qrcode">
-            
-          </div>
-        </div>
-      </div> -->
+      
     </div>
     <script type='module'>
       import { EffectComposer } from './js/jsm/postprocessing/EffectComposer.js';
@@ -211,7 +211,7 @@
                   z: z - center.z
                 };
 
-                return [result.x/1.2 , result.y/1.2 ];
+                return [result.x/1.18, result.y/1.18 ];
               }
               
               // function lonlatToThree(longitude, latitude, height){
@@ -375,7 +375,7 @@
               });
               this.renderer.sortObjects = true;
 
-              var renderScene = new RenderPass( this.scene, this.camera );
+              this.renderScene = new RenderPass( this.scene, this.camera );
 
 
               //Bloom通道创建
@@ -401,7 +401,7 @@
             this.composer.renderTarget2.stencilBuffer = false;
             this.composer.setSize(window.innerWidth, window.innerHeight);
 
-            this.composer.addPass(renderScene);
+            this.composer.addPass(this.renderScene);
             this.composer.addPass(bloomPass);
             // this.composer.addPass(effectCopy);
             this.composer.addPass(fxaaPass);
@@ -435,12 +435,19 @@
               this.camera.projectionMatrix = m.multiply(l);
               // this.renderer.state.reset();
               // this.renderer.render(this.scene, this.camera);
-              this.composer.render();
+              this.renderScene = new RenderPass( this.scene, this.camera );
+
+              this.composer.render(this.scene, this.camera);
 
               this.map.triggerRepaint();
             }
           };
-          map.addLayer(customLayer);
+          document.getElementById('add-fence').onclick = function () {
+            map.addLayer(customLayer);
+
+              document.getElementById('add-fence').setAttribute('disabled', true);
+              document.getElementById('remove-fence').removeAttribute('disabled');
+          };
           function lonlatToMercator(lon, lat, height) {
             var z = height ? height : 0;
             var x = (lon / 180.0) * 20037508.3427892;
@@ -468,32 +475,7 @@
             return [result.x, result.y ];
           }
 
-          // map.addSource('floorplan', {
-          // // GeoJSON Data source used in vector tiles, documented at
-          // // https://gist.github.com/ryanbaumann/a7d970386ce59d11c16278b90dde094d
-          // 'type': 'geojson',
-          // 'data':'./json/response.json'
-          // });
-          // map.addLayer(
-          //   {
-          //     'id': 'room-extrusion',
-          //     'type': 'fill-extrusion',
-          //     'source': 'floorplan',
-          //   'paint': {
-          //     'fill-extrusion-color': '#715882',
- 
-          //     // Get fill-extrusion-height from the source 'height' property.
-          //     'fill-extrusion-height': 500,
-                
-          //     // Get fill-extrusion-base from the source 'base_height' property.
-          //     'fill-extrusion-base': 0,
-                
-          //     // Make extrusions slightly opaque for see through indoor walls.
-          //     'fill-extrusion-opacity': 1
-          //   }
-          //   },
-          //   '3d-model'
-          // );
+      
       });
 
       

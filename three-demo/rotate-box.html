@@ -13,40 +13,663 @@
 </head>
 <body>
 	</body>
-	<script>
+	<script type='module'>
 		// 场景 模型 光源 相机 渲染器
-		let scene = new THREE.Scene();
+
+			import * as THREE from './build/three.module.js';
+
+			import { OrbitControls } from './js/jsm/controls/OrbitControls.js';
+			import { LineMaterial } from './js/jsm/lines/LineMaterial.js';
+			import { Wireframe } from './js/jsm/lines/Wireframe.js';
+			import { WireframeGeometry2 } from './js/jsm/lines/WireframeGeometry2.js';
+			import { EffectComposer } from './js/jsm/postprocessing/EffectComposer.js';
+			import { RenderPass } from './js/jsm/postprocessing/RenderPass.js';
+			import { ShaderPass } from './js/jsm/postprocessing/ShaderPass.js';
+			import { UnrealBloomPass } from './js/jsm/postprocessing/UnrealBloomPass.js';
+      import { FXAAShader } from './js/jsm/shaders/FXAAShader.js';
+
+			var wireframe, renderer, scene, camera, controls,composer,finalComposer;
+			var darkMaterial = new THREE.MeshBasicMaterial( { color: "black" } );
+			
+			var wireframe1;
+			var plane;
+			var scene2;
+			var matLine, matLineBasic, matLineDashed;
+			let boxGroup;
+			let outter_box_mesh;
+			let inner_box_mesh;
+			var bloomLayer = new THREE.Layers();
+			bloomLayer.set( 1 );
+			var materials = {};
+			// viewport
+			var insetWidth;
+			var insetHeight;
+
+			init();
+			animate();
+
+			function box( width, height, depth ) {
+
+				width = width * 0.5,
+				height = height * 0.5,
+				depth = depth * 0.5;
+
+				var geometry = new THREE.BufferGeometry();
+				var position = [];
+
+				position.push(
+					- width, - height, - depth,
+					- width, height, - depth,
+
+					- width, height, - depth,
+					width, height, - depth,
+
+					width, height, - depth,
+					width, - height, - depth,
+
+					width, - height, - depth,
+					- width, - height, - depth,
+
+					- width, - height, depth,
+					- width, height, depth,
+
+					- width, height, depth,
+					width, height, depth,
+
+					width, height, depth,
+					width, - height, depth,
+
+					width, - height, depth,
+					- width, - height, depth,
+
+					- width, - height, - depth,
+					- width, - height, depth,
+
+					- width, height, - depth,
+					- width, height, depth,
+
+					width, height, - depth,
+					width, height, depth,
+
+					width, - height, - depth,
+					width, - height, depth
+				);
+
+				geometry.setAttribute( 'position', new THREE.Float32BufferAttribute( position, 3 ) );
+
+				return geometry;
+
+			}
+
+			function init() {
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+				scene = new THREE.Scene();
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 0.0001, 1000000 );
+				// camera.position.set( - 50, 0, 50 );
+
+				controls = new OrbitControls( camera, renderer.domElement );
+				controls.minDistance = 10;
+				controls.maxDistance = 500;
+
+				let renderScene = new RenderPass( scene, camera );
+
+				var bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight  ), 3, 0.1, 0 );
+
+
+				// 初始化 composer
+				composer = new EffectComposer(renderer);
+				composer.renderToScreen = false;
+				const fxaaPass = new ShaderPass( FXAAShader );
+
+				composer.setSize(window.innerWidth, window.innerHeight);
+				composer.addPass(fxaaPass);
+				composer.addPass(renderScene);
+				composer.addPass(bloomPass);
+
+				var finalPass = new ShaderPass(
+				new THREE.ShaderMaterial( {
+					uniforms: {
+						baseTexture: { value: null },
+						bloomTexture: { value: composer.renderTarget2.texture }
+					},
+					vertexShader: `varying vec2 vUv;
+
+						void main() {
+
+							vUv = uv;
+
+							gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+					}`,
+					fragmentShader: `
+						uniform sampler2D baseTexture;
+						uniform sampler2D bloomTexture;
+
+						varying vec2 vUv;
+
+						vec4 getTexture( sampler2D texelToLinearTexture ) {
+
+							return mapTexelToLinear( texture2D( texelToLinearTexture , vUv ) );
+
+						}
+
+						void main() {
+
+							gl_FragColor = ( getTexture( baseTexture ) + vec4( 1.0 ) * getTexture( bloomTexture ) );
+
+						}
+					`,
+					defines: {}
+				} ), "baseTexture"
+				);
+				finalPass.needsSwap = true;
+
+				finalComposer = new EffectComposer( renderer );
+				finalComposer.addPass( renderScene );
+				finalComposer.addPass( finalPass );
+
+
+				scene.traverse( (obj) => {
+					if ( obj.material ) {
+
+						obj.material.dispose();
+
+					}
+				} );
+				scene.children.length = 0;
+
+				var geo = new THREE.CylinderBufferGeometry( 0, 10, 15, 4, 1 , true);
+				var geometry = new WireframeGeometry2( geo );
+
+				matLine = new LineMaterial( {
+
+					color: 0x4080ff,
+					linewidth: 3, // in pixels
+					//resolution:  // to be set by renderer, eventually
+					dashed: false
+
+				} );
+
+				wireframe = new Wireframe( geometry, matLine );
+
+				wireframe.computeLineDistances();
+				wireframe.position.set(-20,0,-20)
+				wireframe.scale.set( 1, 1, 1 );
+
+				wireframe.rotateX(Math.PI)
+
+				wireframe.layers.enable(1);
+				scene.add( wireframe );
+
+				let cubeGeometry = new THREE.Geometry();
+				var vertices = [
+            new THREE.Vector3(5, 0.01, 5), //v0
+            new THREE.Vector3(-5, 0.01, 5), //v1
+            new THREE.Vector3(-5, 0, 5), //v2
+            new THREE.Vector3(5, 0, 5), //v3
+            new THREE.Vector3(5, 0, -5), //v4
+            new THREE.Vector3(5, 0.01, -5), //v5
+            new THREE.Vector3(-5, 0.01, -5), //v6
+            new THREE.Vector3(-5, 0, -5) //v7
+        ];
+				cubeGeometry.vertices = vertices;  //设置立方体的各个坐标点
+				var faces=[
+            new THREE.Face3(0,1,2),
+            new THREE.Face3(0,2,3),
+            new THREE.Face3(0,3,4),
+            new THREE.Face3(0,4,5),
+            new THREE.Face3(1,6,7),
+            new THREE.Face3(1,7,2),
+            new THREE.Face3(6,5,4),
+            new THREE.Face3(6,4,7),
+            new THREE.Face3(5,6,1),
+            new THREE.Face3(5,1,0),
+            new THREE.Face3(3,2,7),
+            new THREE.Face3(3,7,4)
+        ];
+				cubeGeometry.faces = faces; 
+				let texture = new THREE.TextureLoader().load("./img/gunshot1.png");
+				texture.minFilter = texture.magFilter = THREE.LinearFilter;
+				texture.anisotropy = 8;
+				texture.center.set(0.5, 0.5);
+				texture.rotation = 1 * Math.PI / 4;
+			
+				let materials = [
+					new THREE.MeshBasicMaterial({color: 0xff0000, side: THREE.DoubleSide, alphaTest: 0.5, transparent: true, opacity: 0}),
+					new THREE.MeshBasicMaterial({color: 0x00ff00, side: THREE.DoubleSide, alphaTest: 0.5, transparent: true, opacity: 0}),
+					new THREE.MeshBasicMaterial({color: 0x0000ff, side: THREE.DoubleSide, alphaTest: 0.5, transparent: true, opacity: 0}),
+					new THREE.MeshBasicMaterial({color: 0xffffff, side: THREE.DoubleSide, alphaTest: 0.5, transparent: true, opacity: 0}),
+					new THREE.MeshBasicMaterial({map: texture, alphaTest: 0.5}),
+					new THREE.MeshBasicMaterial({map: texture,  alphaTest: 0.5})
+				]
+				var faceId = 0;
+        var uv = [new THREE.Vector2(0,0),new THREE.Vector2(1,0),new THREE.Vector2(1,1),new THREE.Vector2(0,1)];
+        //设置纹理坐标
+        for(var m=0;m<cubeGeometry.faces.length;m+=2){
+            cubeGeometry.faces[m].materialIndex = faceId;
+            cubeGeometry.faces[m+1].materialIndex = faceId;
+            cubeGeometry.faceVertexUvs[0][m] = [uv[2],uv[3],uv[0]];
+            cubeGeometry.faceVertexUvs[0][m+1] = [uv[2],uv[0],uv[1]];
+            faceId++;
+				}
+				var material2 = new THREE.MeshFaceMaterial(materials);
+				plane = new THREE.Mesh( cubeGeometry, material2 );
+				
+				let group = new THREE.Group();
+
+				let line = new THREE.Geometry();
+				line.vertices.push(
+					new THREE.Vector3( 3.5, 0, 3.5 ),
+					new THREE.Vector3( 15, 0, 15 ),
+				);
+				let lineMaterial = new THREE.LineBasicMaterial({
+					color: 0x20ab9e,
+					width: 0.2
+				});
+				let line_geo = new THREE.Line( line, lineMaterial );
+				group.add(plane);
+				group.add(line_geo);
+				group.rotateX( Math.PI / 2 );
+				group.rotateY( -Math.PI / 4 );
+
+
+				scene.add(group);
+
+
+
+				let outter_box = box(10, 10, 10);
+				let inner_box = box(5, 5, 5);
+			
+				let box_line = new THREE.LineBasicMaterial({
+					color: 0xffaa00, dashSize: 3, gapSize: 1
+				});
+			
+				outter_box_mesh = new THREE.LineSegments( outter_box, box_line );
+				inner_box_mesh = new THREE.LineSegments( inner_box, box_line );
+				boxGroup = new THREE.Group();
+				boxGroup.add(outter_box_mesh);
+				boxGroup.add(inner_box_mesh);
+				boxGroup.position.set(20, 0, 0); 
+				scene.add(boxGroup);
+				
+				createRoadLine();
+
+				window.addEventListener( 'resize', onWindowResize, false );
+				onWindowResize();
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				insetWidth = window.innerHeight / 4; // square
+				insetHeight = window.innerHeight / 4;
+
+
+			}
+
+			function createRoadLine() {
+				const random = base => {
+					if (Array.isArray(base)) return Math.random() * (base[1] - base[0]) + base[0];
+					return Math.random() * base;
+				};
+				const pickRandom = arr => {
+					if (Array.isArray(arr)) return arr[Math.floor(Math.random() * arr.length)];
+					return arr;
+				};
+					const fs = `
+
+						#define USE_FOG;
+						${THREE.ShaderChunk["fog_pars_fragment"]}
+						varying vec3 vColor;
+						varying vec2 vUv; 
+						uniform vec2 uFade;
+						void main() {
+							vec3 color = vec3(vColor);
+							float fadeStart = 0.4;
+							float maxFade = 0.;
+							float alpha = 1.;
+
+							alpha = smoothstep(uFade.x, uFade.y, vUv.x);
+							gl_FragColor = vec4(color,alpha);
+							if (gl_FragColor.a < 0.0001) discard;
+							${THREE.ShaderChunk["fog_fragment"]}
+						}
+					`;
+
+
+					const vs = `
+						#define USE_FOG;
+						// ${THREE.ShaderChunk["fog_pars_vertex"]}
+						attribute vec3 aOffset;
+						attribute vec3 aMetrics;
+						attribute vec3 aColor;
+
+						
+
+						uniform float uTravelLength;
+						uniform float uTime;
+						uniform float uSpeed;
+
+						varying vec2 vUv; 
+						varying vec3 vColor; 
+						#include <getDistortion_vertex>
+
+						void main() {
+							vec3 transformed = position.xyz;
+							float radius = aMetrics.r;
+							float myLength = aMetrics.g;
+							float speed = aMetrics.b;
+
+							transformed.xy *= radius ;
+							transformed.z *= myLength;
+						
+							// Add my length to make sure it loops after the lights hits the end
+							transformed.z += myLength-mod( uTime *speed + aOffset.z, uTravelLength);
+							transformed.xy += aOffset.xy;
+
+
+							float progress = abs(transformed.z / uTravelLength);
+							transformed.xyz += getDistortion(progress);
+
+							vec4 mvPosition = modelViewMatrix * vec4(transformed,1.);
+							gl_Position = projectionMatrix * mvPosition;
+							vUv = uv;
+							vColor = aColor;
+							// ${THREE.ShaderChunk["fog_vertex"]}
+						}`;
+
+						let options = {
+								onSpeedUp: (ev) => {					
+								},
+								onSlowDown: (ev) => {
+								},
+								// mountainDistortion || LongRaceDistortion || xyDistortion || turbulentDistortion || turbulentDistortionStill || deepDistortionStill || deepDistortion
+								distortion: {
+									uniforms: {
+										// x,x, y,y
+										uFreq: new THREE.Uniform(new THREE.Vector4(4, 8, 8, 1)),
+										uAmp: new THREE.Uniform(new THREE.Vector4(25, 5, 10, 10))
+									},
+									getDistortion: `
+												uniform vec4 uFreq;
+												uniform vec4 uAmp;
+												float nsin(float val){
+												return sin(val) * 0.5+0.5;
+												}
+										
+												#define PI 3.14159265358979
+												float getDistortionX(float progress){
+														return 
+																		(
+																				cos( PI * progress * uFreq.r + uTime) * uAmp.r +
+																				pow(cos(PI * progress * uFreq.g + uTime * (uFreq.g / uFreq.r)),2. )* uAmp.g
+																		
+																		);
+												}
+												float getDistortionY(float progress){
+														return 
+																		(
+																				-nsin( PI * progress * uFreq.b + uTime) * uAmp.b +
+																				-pow(nsin(PI * progress * uFreq.a + uTime / (uFreq.b / uFreq.a) ),5.) * uAmp.a
+																		
+																		);
+												}
+												vec3 getDistortion(float progress){
+														return vec3(
+																getDistortionX(progress)-getDistortionX(0.0125) ,
+																getDistortionY(progress)- getDistortionY(0.0125),
+																0.
+														);
+												}
+										`,
+									getJS: (progress, time) => {
+										const uFreq = turbulentUniforms.uFreq.value;
+										const uAmp = turbulentUniforms.uAmp.value;
+
+										const getX = p =>
+											Math.cos(Math.PI * p * uFreq.x + time) * uAmp.x +
+											Math.pow(
+												Math.cos(Math.PI * p * uFreq.y + time * (uFreq.y / uFreq.x)),
+												2
+											) *
+												uAmp.y;
+										const getY = p =>
+											-nsin(Math.PI * p * uFreq.z + time) * uAmp.z -
+											Math.pow(nsin(Math.PI * p * uFreq.w + time / (uFreq.z / uFreq.w)), 5) *
+												uAmp.w;
+
+										let distortion = new THREE.Vector3(
+											getX(progress) - getX(progress + 0.007),
+											getY(progress) - getY(progress + 0.007),
+											0
+										);
+										let lookAtAmp = new THREE.Vector3(-2, -5, 0);
+										let lookAtOffset = new THREE.Vector3(0, 0, -10);
+										return distortion.multiply(lookAtAmp).add(lookAtOffset);
+									}
+								}, 
+								
+								length: 400,
+								roadWidth: 10,
+								islandWidth: 5,
+								lanesPerRoad: 2,
+
+								fov: 90,
+								fovSpeedUp: 150,
+								speedUp: 2,
+								carLightsFade: 0.4,
+
+								totalSideLightSticks: 50,
+								lightPairsPerRoadWay: 70,
+
+								// Percentage of the lane's width
+								shoulderLinesWidthPercentage: 0.05,
+								brokenLinesWidthPercentage: 0.1,
+								brokenLinesLengthPercentage: 0.5,
+
+								/*** These ones have to be arrays of [min,max].  ***/
+								lightStickWidth: [0.12, 0.5],
+								lightStickHeight: [1.3, 1.7],
+
+								movingAwaySpeed: [60, 80],
+								movingCloserSpeed: [-120, -160],
+
+								/****  Anything below can be either a number or an array of [min,max] ****/
+
+								// Length of the lights. Best to be less than total length
+								carLightsLength: [400 * 0.05, 400 * 0.15],
+								// Radius of the tubes
+								carLightsRadius: [0.05, 0.14],
+								// Width is percentage of a lane. Numbers from 0 to 1
+								carWidthPercentage: [0.3, 0.5],
+								// How drunk the driver is.
+								// carWidthPercentage's max + carShiftX's max -> Cannot go over 1. 
+								// Or cars start going into other lanes 
+								carShiftX: [-0.2, 0.2],
+								// Self Explanatory
+								carFloorSeparation: [0.05, 1],
+
+								colors: {
+									roadColor: 0x080808,
+									islandColor: 0x0a0a0a,
+									background: 0x000000,
+									shoulderLines: 0x131318,
+									brokenLines: 0x131318,
+									/***  Only these colors can be an array ***/
+									leftCars: [0xFFFFFF, 0xFFFFFF, 0xFFFFFF],
+									rightCars: [0xA4E3E6, 0x80D1D4, 0x53C2C6],
+									sticks: 0xA4E3E6,
+								}
+							};
+						let colors = [0xA4E3E6, 0x80D1D4, 0x53C2C6];
+						let speed = [60, 80];
+						let fade = {
+							x: 0,
+							y: 0.6
+						};
+
+						let curve = new THREE.LineCurve3(
+							new THREE.Vector3(0, 0, 0),
+							new THREE.Vector3(0, 0, -1)
+						);
+						// Tube with radius = 1
+						let geometry = new THREE.TubeBufferGeometry(curve, 40, 1, 8, false);
+
+						let instanced = new THREE.InstancedBufferGeometry().copy(geometry);
+						instanced.maxInstancedCount = options.lightPairsPerRoadWay * 2;
+
+						let laneWidth = options.roadWidth / options.lanesPerRoad;
+
+						let aOffset = [];
+						let aMetrics = [];
+						let aColor = [];
+
+						if (Array.isArray(colors)) {
+							colors = colors.map(c => new THREE.Color(c));
+						} else {
+							colors = new THREE.Color(colors);
+						}
+
+						for (let i = 0; i < options.lightPairsPerRoadWay; i++) {
+							let radius = random(options.carLightsRadius);
+							let length = random(options.carLightsLength);
+							speed = random(speed);
+
+							let carLane = i % 3;
+							let laneX = carLane * laneWidth - options.roadWidth / 2 + laneWidth / 2;
+
+							let carWidth = random(options.carWidthPercentage) * laneWidth;
+							// Drunk Driving
+							let carShiftX = random(options.carShiftX) * laneWidth;
+							// Both lights share same shiftX and lane;
+							laneX += carShiftX;
+
+							let offsetY = random(options.carFloorSeparation) + radius * 1.3;
+
+							let offsetZ = -random(options.length);
+
+							aOffset.push(laneX - carWidth / 2);
+							aOffset.push(offsetY);
+							aOffset.push(offsetZ);
+
+							aOffset.push(laneX + carWidth / 2);
+							aOffset.push(offsetY);
+							aOffset.push(offsetZ);
+
+							aMetrics.push(radius);
+							aMetrics.push(length);
+							aMetrics.push(speed);
+
+							aMetrics.push(radius);
+							aMetrics.push(length);
+							aMetrics.push(speed);
+
+							let color = pickRandom(colors);
+							aColor.push(color.r);
+							aColor.push(color.g);
+							aColor.push(color.b);
+
+							aColor.push(color.r);
+							aColor.push(color.g);
+							aColor.push(color.b);
+						}
+						instanced.addAttribute(
+							"aOffset",
+							new THREE.InstancedBufferAttribute(new Float32Array(aOffset), 3, false)
+						);
+						instanced.addAttribute(
+							"aMetrics",
+							new THREE.InstancedBufferAttribute(new Float32Array(aMetrics), 3, false)
+						);
+						instanced.addAttribute(
+							"aColor",
+							new THREE.InstancedBufferAttribute(new Float32Array(aColor), 3, false)
+						);
+						let material = new THREE.ShaderMaterial({
+							fragmentShader: fs,
+							vertexShader: vs,
+							transparent: true,
+							uniforms: Object.assign(
+								{
+									// uColor: new THREE.Uniform(new THREE.Color(this.color)),
+									uTime: new THREE.Uniform(0),
+									uTravelLength: new THREE.Uniform(options.length),
+									uFade: new THREE.Uniform(fade)
+								},
+								// this.webgl.fogUniforms,
+								options.distortion.uniforms
+							)
+						});
+						material.onBeforeCompile = shader => {
+							shader.vertexShader = shader.vertexShader.replace(
+								"#include <getDistortion_vertex>",
+								options.distortion.getDistortion
+							);
+							console.log(shader.vertex);
+						};
+						let mesh = new THREE.Mesh(instanced, material);
+						mesh.frustumCulled = false;
+						setInterval(()=> {
+							mesh.material.uniforms.uTime.value += 0.01;
+						}, 100)
+						return mesh;
+					}
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				renderer.setViewport( 0, 0, window.innerWidth, window.innerHeight );
+
+				// renderer will set this eventually
+				matLine.resolution.set( window.innerWidth, window.innerHeight ); // resolution of the viewport
+
+
+				scene.traverse( (obj) => {
+					if ( obj.isMesh && bloomLayer.test( obj.layers ) === false ) {
+
+						materials[ obj.uuid ] = obj.material;
+
+						obj.material = darkMaterial;
+
+
+					}
+				});
+				composer.render();
+				scene.traverse( (obj) => {
+
+					if ( materials[ obj.uuid ] ) {
+
+						obj.material = materials[ obj.uuid ];
+						delete materials[ obj.uuid ];
+
+					}
+				});
+
+				finalComposer.render();
+
+				renderer.clearDepth(); // important!
+
+				// // renderer will set this eventually
+				matLine.resolution.set( insetWidth, insetHeight ); // resolution of the inset viewport
+
+				wireframe.rotateY(0.01);
+				outter_box_mesh.rotateX(-0.01);
+				outter_box_mesh.rotateZ(-0.01);
+				inner_box_mesh.rotateY(0.01);
+				inner_box_mesh.rotateX(0.01);
+
+			}
+	
 		
-		let geometry = new THREE.BoxGeometry(100,100,100);
-		let meterial = new THREE.MeshBasicMaterial({
-			color: '#FFCCAA'
-		});
-		let mesh = new THREE.Mesh(geometry, meterial);
-		scene.add(mesh);
-
-		let light = new THREE.AmbientLight('#FFFFFF');
-		scene.add(light);
-
-		let width = window.innerWidth;
-		let height = window.innerHeight;
-		let camera = new THREE.PerspectiveCamera(50, width / height, 1, 1000);
-		camera.position.set(200, 300, 200);
-		camera.lookAt(scene.position);
-		
-		let axesHelper = new THREE.AxesHelper( 50 );
-		scene.add( axesHelper );
-
-		let renderer = new THREE.WebGLRenderer();
-		renderer.setSize(width, height);
-		renderer.setClearColor('#B9D3FF', 1);
-		document.body.appendChild(renderer.domElement);
-		// renderer.render(scene, camera);
-		// 渲染函数
-		function render() {
-				renderer.render(scene,camera);//执行渲染操作
-				mesh.rotateY(0.01);//每次绕y轴旋转0.01弧度
-		}
-		//间隔20ms周期性调用函数fun,20ms也就是刷新频率是50FPS(1s/20ms)，每秒渲染50次
-		setInterval(render,20);
 	</script>
 </html>
