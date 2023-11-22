@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>visual</title>
+    <style>
+        canvas {
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        body {
+            padding: 0;
+            margin: 0;
+            background-color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="box"></div>
+</body>
+<script type="importmap">
+    {
+        "imports": {
+            "three": "../js/three.module.js",
+            "three/addons/": "../js/jsm/"
+        }
+    }
+</script>
+<script type="module" src="./ocean.js"></script>
+<!-- <script type="module" src="./cloud.js"></script> -->
+
+</html>

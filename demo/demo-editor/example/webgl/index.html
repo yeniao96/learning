@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>v</title>
+<style>
+    canvas{
+        width: 512px;
+        height: 512px;
+    }
+    body{
+        display: flex;
+        justify-content: center;
+        padding: 0;
+        margin: 0;
+    }
+</style>
+</head>
+<body>
+    <canvas id="box" width="512" height="512" ></canvas>
+    <img width="512" height="512" src="http://localhost:8082/example/img/deepth.png">
+    <!-- <img id="imgbox" src="../img/deepth.png" style="transform: rotate(180deg);"/> -->
+</body>
+
+<script type="importmap">
+    {
+        "imports": {
+            "matrix4": "http://localhost:8082/example/webgl/matrix4-v1.js"
+        }
+    }
+</script>
+<script type="module" src="./shadow.js"></script>
+</html>

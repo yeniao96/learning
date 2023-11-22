@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>v</title>
+<style>
+    canvas{
+        width: 500px;
+        height: 500px;
+        margin-top: 100px;
+    }
+    body{
+        padding: 0;
+        margin: 0;
+        background-color: white;
+        display: flex;
+        justify-content: center;
+    }
+</style>
+</head>
+<body>
+    <canvas id="box" width="500" height="500" >
+</body>
+
+<script type="importmap">
+    {
+        "imports": {
+            "matrix4": "http://localhost:8081/util/matrix4-v1.js"
+        }
+    }
+</script>
+<script type="module" src="./IBL.js"></script>
+
+</html>

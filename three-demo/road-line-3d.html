@@ -61,7 +61,7 @@
 
 
       mapboxgl.accessToken =
-        'pk.eyJ1IjoiZWR5ZGF0YSIsImEiOiJjajZobmwzdzcwYjMxMzJteTd2Y3A0MGVyIn0.kw8CoNgHKeywtca6JlK2UA';
+        'pk.eyJ1IjoieWVuaWFvIiwiYSI6ImNscDljZDJrcDJtbHEyaXBicGV0bHYzd2YifQ.6paLsCdrQfu_mlp5cvPhFA';
 
       var map = new mapboxgl.Map({
         container: 'map',
@@ -72,7 +72,9 @@
         center: [120.597890997523,31.3189215840662],
       });
 
-      
+      function random(scope){ 
+        return scope[0] + Math.random() * (scope[1] - scope[0]);
+      }
 
       map.on('load', function() {
           // Change the source to filter
@@ -356,7 +358,6 @@
                   let aMetrics = [];
                   let aColor = [];
 
-                  let colors = this.colors;
                   if (Array.isArray(colors)) {
                     colors = colors.map(c => new THREE.Color(c));
                   } else {
@@ -366,7 +367,7 @@
                   for (let i = 0; i < options.lightPairsPerRoadWay; i++) {
                     let radius = random(options.carLightsRadius);
                     let length = random(options.carLightsLength);
-                    let speed = random(this.speed);
+                    let speed = random([60, 80]);
 
                     let carLane = i % 3;
                     let laneX = carLane * laneWidth - options.roadWidth / 2 + laneWidth / 2;
@@ -397,7 +398,7 @@
                     aMetrics.push(length);
                     aMetrics.push(speed);
 
-                    let color = pickRandom(colors);
+                    let color = colors[0];
                     aColor.push(color.r);
                     aColor.push(color.g);
                     aColor.push(color.b);
